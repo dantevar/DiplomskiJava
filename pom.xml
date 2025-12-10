@@ -10,14 +10,13 @@
     </properties>
 
     <dependencies>
-        <!-- JGraphT core -->
+
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-core</artifactId>
             <version>1.5.2</version>
         </dependency>
 
-        <!-- Ako želiš TSP implementacije i naprednije algoritme -->
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-ext</artifactId>

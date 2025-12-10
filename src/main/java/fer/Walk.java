@@ -1,26 +1,33 @@
 package fer;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class Walk {
 	
   	long state;       // gornjih 48 bitova: visitedBits, donjih 16 bitova: head
-    List<Integer> walk;
+    Walk parent;      // prethodni walk (za rekonstrukciju puta)
     double cost;
     int length;
 
-    public Walk(int head, List<Integer> walk, double cost) {
-        this.walk = walk;
+    // Konstruktor za početni walk (samo vrh 0)
+    public Walk(int head, double cost) {
+        this.state = (1L << (16 + head)) | head; // postavi bit za head u visitedBits i spremi head
+        this.parent = null;
         this.cost = cost;
+        this.length = 1;
+    }
 
-        int visitedBits = 0;
-        for (int v : walk) {
-            visitedBits |= 1 << v; // postavi bit za svaki vrh u walk
-        }
-
-        // spojimo visitedBits i head u jedan long
-        this.state = (((long) visitedBits) << 16) | head;
-        this.length = walk.size();
+    // Konstruktor za proširenje postojećeg walk-a
+    public Walk(Walk parent, int newHead, double cost) {
+        this.parent = parent;
+        this.cost = cost;
+        this.length = parent.length + 1;
+        
+        // Inkrementalno ažuriraj state: dodaj novi bit i promijeni head
+        long visitedBits = (parent.state >>> 16) | (1L << newHead); // dodaj novi vrh u visited
+        this.state = (visitedBits << 16) | newHead;
     }
 
     public int getHead() {
@@ -37,10 +44,21 @@ public class Walk {
         return (visited & allVisitedMask) == allVisitedMask;
     }
     
+    // Rekonstruiraj cijeli walk prateći parent pointere
+    public List<Integer> reconstructWalk() {
+        List<Integer> walk = new ArrayList<>(length);
+        Walk current = this;
+        while (current != null) {
+            walk.add(current.getHead());
+            current = current.parent;
+        }
+        Collections.reverse(walk);
+        return walk;
+    }
 
     @Override
     public String toString() {
-        return this.walk.toString() + " head:" + getHead() + " cost:" + cost;
+        return reconstructWalk().toString() + " head:" + getHead() + " cost:" + cost;
     }
 
 	
