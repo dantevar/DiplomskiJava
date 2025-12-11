@@ -3,10 +3,10 @@ package fer;
 import java.util.List;
 public class Graph {
 	
-	double[][] distance_matrix ;
-	double[][] min_distances;
-	List<int[]> nextHops;
-	int n ;
+	public double[][] distance_matrix ;
+	public double[][] min_distances;
+	public List<int[]> nextHops;
+	public int n ;
 	
 	public Graph(double[][] distance_matrix) {
 		

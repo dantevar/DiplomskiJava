@@ -37,7 +37,7 @@ public class ClosedWalkSolver {
             seq.add(0);
             return new Result(0.0, seq);
         }
-
+        
         final int subsetCount = 1 << n;
         final double INFINITY = Double.MAX_VALUE / 4;
 
@@ -160,26 +160,5 @@ public class ClosedWalkSolver {
         return path;
     }
 
-    // Primjer korištenja
-    public static void main(String[] args) {
-        // Primjer s malim grafom
-        int n = 4;
-        double[][] adjacency = {
-            {0, 2, Double.POSITIVE_INFINITY, 4},
-            {2, 0, 3, Double.POSITIVE_INFINITY},
-            {Double.POSITIVE_INFINITY, 3, 0, 1},
-            {4, Double.POSITIVE_INFINITY, 1, 0}
-        };
 
-        Graph g = new Graph(adjacency);
-        
-        Result result = solve(g);
-        
-        System.out.println("Minimalni trošak zatvorene šetnje: " + result.cost);
-        System.out.println("Sekvenca obaveznih posjeta: " + result.sequence);
-        
-        // Ako želiš punu šetnju s ponavljanjima:
-        // List<Integer> fullWalk = reconstructFullWalk(g, result.sequence);
-        // System.out.println("Puna šetnja: " + fullWalk);
-    }
 }
