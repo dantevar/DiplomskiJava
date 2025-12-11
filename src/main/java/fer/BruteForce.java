@@ -1,0 +1,213 @@
+package fer;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class BruteForce {
+
+    public static double permutations(Graph g){
+        int n = g.n;
+        
+        // Kreiraj listu vrhova bez 0 (jer 0 je fiksiran na početku)
+        List<Integer> vertices = new ArrayList<>();
+        for (int i = 1; i < n; i++) {
+            vertices.add(i);
+        }
+        
+        double[] best = {Double.POSITIVE_INFINITY};
+        
+        // Generiraj sve permutacije i pronađi najbolju cijenu
+        generatePermutations(g, vertices, 0, best);
+        
+        return best[0];
+    }
+    
+    /**
+     * Branch & Bound verzija - PUNO BRŽA!
+     * Rano odbacuje grane koje sigurno ne mogu biti bolje od trenutnog optimuma
+     */
+    public static double branchAndBound(Graph g) {
+        int n = g.n;
+        
+        boolean[] visited = new boolean[n];
+        visited[0] = true; // Start je uvijek 0
+        
+        double[] best = {Double.POSITIVE_INFINITY};
+        
+        // Preračunaj lower bound info jednom
+        double[][] minOutgoing = new double[n][2]; // 2 najmanja outgoing brida za svaki vrh
+        for (int i = 0; i < n; i++) {
+            minOutgoing[i] = findTwoSmallest(g.min_distances[i], i);
+        }
+        
+        // Pokreni rekurzivnu pretragu s pruningom
+        branchAndBoundRecursive(g, 0, 0.0, visited, 1, best, minOutgoing);
+        
+        return best[0];
+    }
+    
+    private static void branchAndBoundRecursive(Graph g, int current, double currentCost, 
+                                                 boolean[] visited, int depth, double[] best,
+                                                 double[][] minOutgoing) {
+        int n = g.n;
+        
+        // Bazni slučaj: svi vrhovi posjećeni
+        if (depth == n) {
+            double totalCost = currentCost + g.min_distances[current][0];
+            if (totalCost < best[0]) {
+                best[0] = totalCost;
+            }
+            return;
+        }
+        
+        // PRUNING: Izračunaj donju granicu (lower bound)
+        double lowerBound = calculateLowerBound(g, current, currentCost, visited, minOutgoing);
+        
+        // Ako je lower bound već gori od najboljeg, odbaci ovu granu
+        if (lowerBound >= best[0]) {
+            return; // PRUNING!
+        }
+        
+        // Probaj sve neposjećene vrhove
+        for (int next = 1; next < n; next++) {
+            if (visited[next]) continue;
+            
+            double edgeCost = g.min_distances[current][next];
+            if (Double.isInfinite(edgeCost)) continue;
+            
+            double newCost = currentCost + edgeCost;
+            
+            // Rano odbacivanje ako već prešli best
+            if (newCost >= best[0]) continue;
+            
+            visited[next] = true;
+            branchAndBoundRecursive(g, next, newCost, visited, depth + 1, best, minOutgoing);
+            visited[next] = false;
+        }
+    }
+    
+    /**
+     * Izračunava donju granicu troška za dovršenje ture
+     */
+    private static double calculateLowerBound(Graph g, int current, double currentCost, 
+                                               boolean[] visited, double[][] minOutgoing) {
+        int n = g.n;
+        double bound = currentCost;
+        
+        // 1. Dodaj najjeftiniji izlaz iz trenutnog vrha prema neposjećenom vrhu
+        double minFromCurrent = Double.POSITIVE_INFINITY;
+        for (int i = 1; i < n; i++) {
+            if (!visited[i]) {
+                minFromCurrent = Math.min(minFromCurrent, g.min_distances[current][i]);
+            }
+        }
+        if (!Double.isInfinite(minFromCurrent)) {
+            bound += minFromCurrent;
+        }
+        
+        // 2. Dodaj optimističku procjenu za svaki neposjećeni vrh
+        // (suma najmanjeg ulaznog i izlaznog brida, podijeljeno s 2)
+        for (int i = 1; i < n; i++) {
+            if (visited[i]) continue;
+            
+            // Najmanji ulazni brid u i od bilo kojeg vrha
+            double minIn = Double.POSITIVE_INFINITY;
+            for (int j = 0; j < n; j++) {
+                if (i != j) {
+                    minIn = Math.min(minIn, g.min_distances[j][i]);
+                }
+            }
+            
+            // Najmanji izlazni brid iz i prema bilo kojem vrhu
+            double minOut = minOutgoing[i][0]; // već preračunato
+            
+            // Optimistična procjena: prosječno ulaz+izlaz
+            bound += (minIn + minOut) / 2.0;
+        }
+        
+        // 3. Dodaj najjeftiniji povratak na 0 od nekog neposjećenog vrha
+        double minToZero = Double.POSITIVE_INFINITY;
+        for (int i = 1; i < n; i++) {
+            if (!visited[i]) {
+                minToZero = Math.min(minToZero, g.min_distances[i][0]);
+            }
+        }
+        if (!Double.isInfinite(minToZero)) {
+            bound += minToZero;
+        }
+        
+        return bound;
+    }
+    
+    /**
+     * Nađi 2 najmanja elementa u nizu (osim dijagonale)
+     */
+    private static double[] findTwoSmallest(double[] arr, int skipIndex) {
+        double first = Double.POSITIVE_INFINITY;
+        double second = Double.POSITIVE_INFINITY;
+        
+        for (int i = 0; i < arr.length; i++) {
+            if (i == skipIndex) continue;
+            
+            if (arr[i] < first) {
+                second = first;
+                first = arr[i];
+            } else if (arr[i] < second) {
+                second = arr[i];
+            }
+        }
+        
+        return new double[]{first, second};
+    }
+    
+    private static void generatePermutations(Graph g, List<Integer> vertices, int index, double[] best) {
+        if (index == vertices.size()) {
+            // Izračunaj cijenu za ovu permutaciju
+            double cost = calculateTourCost(g, vertices);
+            if (cost < best[0]) {
+                best[0] = cost;
+            }
+            return;
+        }
+        
+        // Generiraj permutacije zamjenom pozicija
+        for (int i = index; i < vertices.size(); i++) {
+            // Swap
+            swap(vertices, i, index);
+            
+            // Rekurzivno generiraj permutacije za preostale elemente
+            generatePermutations(g, vertices, index + 1, best);
+            
+            // Backtrack (swap natrag)
+            swap(vertices, i, index);
+        }
+    }
+    
+    private static double calculateTourCost(Graph g, List<Integer> vertices) {
+        double cost = 0.0;
+        
+        // Počinjemo od vrha 0
+        int current = 0;
+        
+        // Prolazimo kroz sve vrhove u permutaciji
+        for (int next : vertices) {
+            cost += g.min_distances[current][next];
+            if (Double.isInfinite(cost)) {
+                return Double.POSITIVE_INFINITY; // Nema puta
+            }
+            current = next;
+        }
+        
+        // Dodaj cost od zadnjeg vrha natrag do 0
+        cost += g.min_distances[current][0];
+        
+        return cost;
+    }
+    
+    private static void swap(List<Integer> list, int i, int j) {
+        int temp = list.get(i);
+        list.set(i, list.get(j));
+        list.set(j, temp);
+    }
+    
+}
