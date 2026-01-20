@@ -50,8 +50,8 @@ public class ASPWAnalysis {
         for (int i = 0; i < numInstances; i++) {
             try {
                 // Učitaj random instancu
-                InstanceLoader.GraphInstance instance = InstanceLoader.loadRandomInstance(n);
-                Graph graph = instance.toGraph();
+                Graph instance = InstanceLoader.loadRandomInstance(n);
+                Graph graph = instance;
                 
                 // Pokreni ASPW
                 long startTime = System.nanoTime();

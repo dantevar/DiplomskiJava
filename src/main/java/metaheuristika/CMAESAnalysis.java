@@ -51,9 +51,8 @@ public class CMAESAnalysis {
         for (int i = 0; i < numInstances; i++) {
             try {
                 // Učitaj random instancu
-                InstanceLoader.GraphInstance instance = InstanceLoader.loadRandomInstance(n);
-                Graph graph = instance.toGraph();
-                
+                Graph instance = InstanceLoader.loadRandomInstance(n);
+                Graph graph = instance;                
                 // Pokreni CMA-ES
                 long startTime = System.nanoTime();
                 Result result = CMAES.solve(graph, generations, 0); // No printing
@@ -61,7 +60,7 @@ public class CMAESAnalysis {
                 
                 // Izračunaj metriku
                 double executionTimeMs = (endTime - startTime) / 1_000_000.0;
-                double gap = (result.cost - instance.optimalCost) / instance.optimalCost * 100.0;
+                double gap = (result.cost - graph.optimalCost) / graph.optimalCost * 100.0;
                 
                 // Spremi rezultate
                 executionTimes.add(executionTimeMs);
