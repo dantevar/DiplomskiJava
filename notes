@@ -46,6 +46,9 @@
     - prikaz rjesenja
     - analiza performansi
 
+5.9 - metricki grafovi
+    - vizualizaijca algoritmi 
+    - ne-egzaktni algoritmi
 6. usporedba rezultata
     -kvaliteta rjesenja
     -vrijeme izvrsavanja
@@ -53,6 +56,14 @@
 6.9. rjesavanje velikih instanci i metrickih grafova sa min walk algoritmima
     -prilagodba heuristika i metaheuristika za velike instance
     -analiza performansi na velikim instancama
+
+6.99
+ferko 11 usporedba obavezno, usporedba algoritama, statistike, t test itd
+- takodjer teorijski dio u radu
+- ostatak predmeta isto u tekst
+- graf konvergecije
+-podesavanje parametra, alg ovise o parametrima
+-GRID SEARCH - za lakse probleme, kombinatorna eksplozija
 7. zakljucki
     -sumirati sve
     -predlozi za buduce radove
@@ -62,3 +73,19 @@
     -paralelizacija algoritama
     -mogucnosti primjene u stvarnom svijetu
     -zakljucke o primjenjivosti i efikasnosti razlicitih pristupa
+
+- plus, minus permutacija+min put vs walk rjesenje, ne moze odlutati previse i na kraju se optimizira
+- mozda dodati branch and bound za egzaktni,
+
+kljucne znacajke algoritma:
+avg cost,
+stdev(uz to ili posebno max cost), zelimo da alg bude stabilan i kvalitetan
+vrijeme
+memorija
+mogucnost paralelizacija, koliki postotak ubrzano
+medijan?
+koliko brzo alg dodje do dobrih rjesenja = konvergencija, 
+npr vrti 10000 iter ali solidna su vec do 1000, bitno za big n
+GRID SEARCH obavezno
+
+no free lunch? al ovo je 1 problem, ne generalna optimizacija
