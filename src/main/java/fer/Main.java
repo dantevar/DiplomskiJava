@@ -47,7 +47,7 @@ public class Main {
 	        
 	        // --- TSP solver Parallel timing ---
 	        long tspParStart = System.nanoTime();
-	        TSPSolverParallel.Result pathPar = TSPSolverParallel.solve(w);
+	        Result pathPar = TSPSolverParallel.solve(w);
 	        long tspParEnd = System.nanoTime();
 	        totalTspParTime += (tspParEnd - tspParStart);
 	        double optimalParCost = round(pathPar.cost);
@@ -68,7 +68,7 @@ public class Main {
 	        
 	        // --- Held-Karp DP walk ---
 	        long heldKarpStart = System.nanoTime();
-	        ClosedWalkSolver.Result heldKarpResult = ClosedWalkSolver.solve(g);
+	        Result heldKarpResult = ClosedWalkSolver.solve(g);
 	        long heldKarpEnd = System.nanoTime();
 	        long heldKarpTime = heldKarpEnd - heldKarpStart;
 	        

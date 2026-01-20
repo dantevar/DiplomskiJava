@@ -49,6 +49,23 @@ public class GraphGenerator {
 		return graph;
         
     }
+
+        public static double[][] generateRandomGraphSeed(int n, long seed) {
+    	
+        double[][] graph = new double[n][n];
+        Random rand = new Random(seed);
+
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) { 
+                double edge = rand.nextDouble();
+                graph[i][j] = edge;
+                graph[j][i] = edge; 
+            }
+            graph[i][i] = 0; 
+        }
+		return graph;
+        
+    }
     
     public static double[][] generateMetricGraph(int n) {
         double[][] graph = new double[n][n];

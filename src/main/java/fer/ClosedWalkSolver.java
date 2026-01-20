@@ -10,15 +10,6 @@ import utils.*;
  */
 public class ClosedWalkSolver {
 
-    public static class Result {
-        public final double cost;
-        public final List<Integer> sequence; // sekvenca posjeta (može imati duplikate u stvarnoj šetnji)
-        
-        public Result(double cost, List<Integer> sequence) {
-            this.cost = cost;
-            this.sequence = sequence;
-        }
-    }
 
     /**
      * Held-Karp DP za najkraću zatvorenu šetnju koja posjećuje sve vrhove.

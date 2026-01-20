@@ -29,7 +29,7 @@ public class TestParallelSolvers {
 
             // --- TSP Solver Parallel ---
             long tspParStart = System.nanoTime();
-            TSPSolverParallel.Result tspResult = TSPSolverParallel.solve(w);
+            Result tspResult = TSPSolverParallel.solve(w);
             long tspParEnd = System.nanoTime();
             totalTspParTime += (tspParEnd - tspParStart);
             totalTspParCost += round(tspResult.cost);
