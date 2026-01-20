@@ -3,17 +3,10 @@ package fer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
+import utils.*;
 public class TSPSolver {
 
-    public static class Result {
-        public final double cost;
-        public final List<Integer> tour; // uključuje povratak na 0
-        public Result(double cost, List<Integer> tour) {
-            this.cost = cost;
-            this.tour = tour;
-        }
-    }
+
 
     /**
      * Held-Karp bitmask DP for TSP (start at 0).

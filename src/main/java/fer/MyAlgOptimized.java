@@ -1,6 +1,5 @@
 package fer;
 
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -9,7 +8,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
+import utils.*;
 public class MyAlgOptimized {
 
     private static class SharedState {

@@ -3,19 +3,8 @@ package fer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.IntStream;
-
+import utils.*;
 public class ClosedWalkSolverParallel {
-
-    public static class Result {
-        public final double cost;
-        public final List<Integer> sequence;
-        
-        public Result(double cost, List<Integer> sequence) {
-            this.cost = cost;
-            this.sequence = sequence;
-        }
-    }
 
     public static Result solve(Graph g) {
         final int n = g.n;

@@ -2,29 +2,11 @@ package heuristika;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import fer.Graph;
+import utils.Result;
+import utils.*;
 
 public class Greedy {
 
-    public static class Result {
-        public final double cost;
-        public final List<Integer> tour;
-
-        public Result(double cost, List<Integer> tour) {
-            this.cost = cost;
-            this.tour = tour;
-        }
-    }
-
-    /**
-     * Classic Nearest Neighbor TSP heuristic.
-     * Starts at node 0, always visits the nearest unvisited neighbor.
-     * Finally returns to 0.
-     * 
-     * The cost is calculated using the shortest paths (min_distances) 
-     * between the chosen vertices in the permutation.
-     */
     public static Result solve(Graph g) {
         int n = g.n;
         if (n == 0) return new Result(0, new ArrayList<>());

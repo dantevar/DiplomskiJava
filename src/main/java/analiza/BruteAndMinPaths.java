@@ -8,8 +8,8 @@ import java.util.TreeMap;
 import javax.swing.*;
 import java.awt.*;
 
-import fer.Graph;
-import fer.GraphGenerator;
+import utils.*;
+
 
 public class BruteAndMinPaths {
 	

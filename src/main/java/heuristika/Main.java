@@ -1,7 +1,7 @@
 package heuristika;
 
 import fer.*;
-
+import utils.*;
 public class Main {
 
     static double round(double x) {
@@ -31,7 +31,7 @@ public class Main {
 
             // --- Greedy Heuristic ---
             long greedyStart = System.nanoTime();
-            Greedy.Result greedyResult = Greedy.solve(g);
+            Result greedyResult = Greedy.solve(g);
             long greedyEnd = System.nanoTime();
             totalGreedyTime += (greedyEnd - greedyStart);
             totalGreedyCost += round(greedyResult.cost);
@@ -45,7 +45,7 @@ public class Main {
 
             // --- Closed Walk Solver Parallel ---
             long hkParStart = System.nanoTime();
-            ClosedWalkSolverParallel.Result hkResult = ClosedWalkSolverParallel.solve(g);
+            Result hkResult = ClosedWalkSolverParallel.solve(g);
             long hkParEnd = System.nanoTime();
             totalHkParTime += (hkParEnd - hkParStart);
             totalHkParCost += round(hkResult.cost);

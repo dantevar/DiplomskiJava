@@ -3,7 +3,7 @@ package fer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
+import utils.*;
 /**
  * Held-Karp Dynamic Programming za problem zatvorene šetnje.
  * Koristi min_distances (najkraće puteve) umjesto direktnih bridova.

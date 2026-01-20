@@ -1,5 +1,5 @@
 package fer;
-
+import utils.*;
 public class TestParallelSolvers {
 
     static double round(double x) {
@@ -36,7 +36,7 @@ public class TestParallelSolvers {
 
             // --- Closed Walk Solver Parallel ---
             long hkParStart = System.nanoTime();
-            ClosedWalkSolverParallel.Result hkResult = ClosedWalkSolverParallel.solve(g);
+            Result hkResult = ClosedWalkSolverParallel.solve(g);
             long hkParEnd = System.nanoTime();
             totalHeldKarpParTime += (hkParEnd - hkParStart);
             totalHeldKarpParCost += round(hkResult.cost);

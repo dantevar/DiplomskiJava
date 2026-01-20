@@ -45,7 +45,7 @@ public class TSPSolverParallel {
         dp[1][0] = 0;
 
         // 1. Grupiranje maski po broju bitova (slojevi)
-        List<Integer>[] layers = new List[n + 1];
+        List<Integer>[] layers = new ArrayList[n + 1];
         for (int i = 0; i <= n; i++) {
             layers[i] = new ArrayList<>();
         }

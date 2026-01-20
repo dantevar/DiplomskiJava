@@ -1,6 +1,6 @@
 package fer;
 
-import fer.TSPSolver.*;
+import utils.*;
 public class Main {
 	
 	static double round(double x) {
@@ -74,7 +74,7 @@ public class Main {
 	        
 	        // --- Held-Karp DP Parallel walk ---
 	        long heldKarpParStart = System.nanoTime();
-	        ClosedWalkSolverParallel.Result heldKarpParResult = ClosedWalkSolverParallel.solve(g);
+	        Result heldKarpParResult = ClosedWalkSolverParallel.solve(g);
 	        long heldKarpParEnd = System.nanoTime();
 	        long heldKarpParTime = heldKarpParEnd - heldKarpParStart;
 	        

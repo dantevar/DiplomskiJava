@@ -15,6 +15,8 @@
     -brute force permutacije + min put
     -dokaz optimalnosti i slozenosti
     -dinamicko programiranje (Held-Karp)(opis za tsp, prilagodba za min walk)
+    - analiza slozenosti
+    - memorijska složenost
 3. prikaz rješenja, usporedba s tspom
     - tsp riješenje + min putevi vs lista cijele šetnje vs linked lista 
     - usporedba postotak vremena kada je bolje od tsp rjesenja plus avg cost (plus stddev, mean?min?max? DA!)
@@ -25,6 +27,7 @@
     - vizualizacija grafa i rjesenja
     - detaljnija analiza svakog koraka algoritma da vidim prednost i mane
     - npr greedy tsp + min walk nije los jer daje dobar pocetak za poboljsanje
+    - halo probaj random tsp + min walk duh 
 4. heuristike
     -greedy min walk zasto ne radi
     -greedy tsp + min putevi 
@@ -32,13 +35,24 @@
     -poboljsavajuce
     -2opt, 3opt
     - poboljšanja specifična za min walk, ne ideje kao kod tsp
-    - ...
+    - lokalna pretraga
 5. metaheuristike
     -simulated annealing
     -genetski algoritmi
     -ant colony optimization
+    -igranje sa parametrima
+    -prilagodbe za min walk
+    - hibridni pristupi
+    - prikaz rjesenja
+    - analiza performansi
+
 6. usporedba rezultata
     -kvaliteta rjesenja
+    -vrijeme izvrsavanja
+    -memorijska slozenost
+6.9. rjesavanje velikih instanci i metrickih grafova sa min walk algoritmima
+    -prilagodba heuristika i metaheuristika za velike instance
+    -analiza performansi na velikim instancama
 7. zakljucki
     -sumirati sve
     -predlozi za buduce radove
@@ -47,3 +61,4 @@
     -istrazivanje novih optimizacija poput 2optwalk jer walk ima više slobode od ciklusa(samo za heuristike)
     -paralelizacija algoritama
     -mogucnosti primjene u stvarnom svijetu
+    -zakljucke o primjenjivosti i efikasnosti razlicitih pristupa

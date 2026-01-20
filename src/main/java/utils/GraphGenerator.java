@@ -1,4 +1,4 @@
-package fer;
+package utils;
 
 import java.util.Random;
 
@@ -75,19 +75,5 @@ public class GraphGenerator {
 		return graph;
     }
     
-    public static void main(String[] args) {
-		
-    	for(int i = 0; i<200; i++) {
-        	int n =17;
-        	double[][] w = generateRandomGraph(n);
-        	
-        	
-        	Graph g = new Graph(w);
-        	
-        	System.out.println(MyAlg.bfsWalk(g));
-    	}
 
-    	System.out.println("done");
-    	
-	}
 }

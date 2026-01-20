@@ -2,7 +2,7 @@ package fer;
 
 import java.util.ArrayList;
 import java.util.List;
-
+import utils.*;
 public class BruteForce {
 
     public static double permutations(Graph g){
