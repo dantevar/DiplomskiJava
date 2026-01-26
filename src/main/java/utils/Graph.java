@@ -8,7 +8,9 @@ public class Graph {
 	public double[][] min_distances;
 	public List<int[]> nextHops;
 	public int n ;
-	
+	public double optimalCost;
+	public List<Integer> optimalWalk;
+
 	public Graph(double[][] distance_matrix) {
 		
 		this.n = distance_matrix.length;
@@ -19,6 +21,17 @@ public class Graph {
 			
 	}
 	
+	public Graph(double[][] distances, double optimalCost, List<Integer> optimalWalk) {
+        this.optimalCost = optimalCost;
+		this.optimalWalk = optimalWalk;
+		this.n = distances.length;
+		this.distance_matrix = distances;
+		this.min_distances = floydWarshall(distances);
+		this.nextHops = floydWarshallNext(distances, min_distances);
+    }
+
+
+
 	public int[] getHops(int i) {
 		return nextHops.get(i);
 	}

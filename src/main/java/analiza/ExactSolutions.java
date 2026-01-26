@@ -9,7 +9,7 @@ public class ExactSolutions {
     public static void main(String[] args) {
         System.out.println("Exact Solutions Analysis\n");
 
-        int n = 20;
+        int n = 12;
         int iter = 10;
         
         long totalSeqTime = 0;

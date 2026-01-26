@@ -16,7 +16,7 @@ public class InstanceLoader {
      * @return GraphInstance sa distance matricom i optimalnim costom
      * @throws IOException ako folder ne postoji ili nema instanci
      */
-    public static GraphInstance loadRandomInstance(int n) throws IOException {
+    public static Graph loadRandomInstance(int n) throws IOException {
         String folderPath = "data/n" + n;
         File folder = new File(folderPath);
         
@@ -41,7 +41,7 @@ public class InstanceLoader {
     /**
      * Učitava specifičnu instancu iz filea.
      */
-    public static GraphInstance loadInstance(String filePath) throws IOException {
+    public static Graph loadInstance(String filePath) throws IOException {
         List<String> lines = Files.readAllLines(Paths.get(filePath));
         
         int n = 0;
@@ -92,33 +92,8 @@ public class InstanceLoader {
             }
         }
         
-        return new GraphInstance(n, distances, optimalCost, optimalWalk);
+        return new Graph(distances,optimalCost, optimalWalk);
     }
     
-    /**
-     * Container klasa za graph instancu.
-     */
-    public static class GraphInstance {
-        public final int n;
-        public final double[][] distances;
-        public final double optimalCost;
-        public final List<Integer> optimalWalk;
-        
-        public GraphInstance(int n, double[][] distances, double optimalCost, List<Integer> optimalWalk) {
-            this.n = n;
-            this.distances = distances;
-            this.optimalCost = optimalCost;
-            this.optimalWalk = optimalWalk;
-        }
-        
-        public Graph toGraph() {
-            return new Graph(distances);
-        }
-        
-        @Override
-        public String toString() {
-            return String.format("GraphInstance[n=%d, optCost=%.4f, walkLen=%d]", 
-                n, optimalCost, optimalWalk != null ? optimalWalk.size() : 0);
-        }
-    }
+
 }

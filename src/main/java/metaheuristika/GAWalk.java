@@ -4,18 +4,14 @@ import java.util.*;
 import utils.*;
 
 /**
- * Genetic Algorithm za MCW problem - Walk verzija
+ * Genetic Algorithm za MCW problem - Walk verzija s Local Search
  * 
- * Reprezentacija: Cijeli walk kao lista čvorova (može imati ponavljanja)
- * - Walk mora posjećivati sve čvorove
- * - Duljina može varirati
+ * KLJUČNA RAZLIKA od GA Standard:
+ * - Koristi min_distances (Floyd-Warshall) - ISPRAVNO za MCW!
+ * - Dodaje local search (2-opt) za intenzifikaciju
+ * - Elitizam za očuvanje najboljih rješenja
  * 
- * Genetski operatori:
- * - Crossover: Segment exchange (uzmi segment iz parent1, ostatak iz parent2)
- * - Mutation: Insert/Delete/Swap/Replace operacije
- * - Selection: Tournament selection
- * 
- * Time Complexity: O(generations * popSize * avgWalkLength)
+ * Time Complexity: O(generations * popSize * n²) zbog local search
  */
 public class GAWalk {
     
@@ -23,47 +19,68 @@ public class GAWalk {
     
     public static Result solve(Graph g, int popSize, int generations, double mutationRate, int printEvery) {
         int n = g.n;
-        double[][] distances = g.distance_matrix;
+        double[][] minDist = g.min_distances; // KORISTIMO MIN_DISTANCES!
         
         if (n <= 1) return new Result(0, Arrays.asList(0));
         
-        // Inicijalizacija populacije
-        List<List<Integer>> population = initializePopulation(g, popSize);
+        // Inicijalizacija populacije (permutacije)
+        List<int[]> population = initializePopulation(g, popSize);
         
-        List<Integer> bestWalk = null;
+        int[] bestPerm = null;
         double bestCost = Double.MAX_VALUE;
         
+        // Elitizam - sačuvaj top 10%
+        int eliteCount = Math.max(1, popSize / 10);
+        
         for (int gen = 0; gen < generations; gen++) {
-            // Evaluacija
+            // Evaluacija i sortiranje
             double[] fitness = new double[popSize];
+            Integer[] indices = new Integer[popSize];
+            
             for (int i = 0; i < popSize; i++) {
-                fitness[i] = evaluateWalk(population.get(i), distances);
-                if (fitness[i] < bestCost) {
-                    bestCost = fitness[i];
-                    bestWalk = new ArrayList<>(population.get(i));
-                }
+                fitness[i] = evaluatePerm(population.get(i), minDist);
+                indices[i] = i;
+            }
+            
+            // Sortiraj po fitness (ascending - manji je bolji)
+            Arrays.sort(indices, (a, b) -> Double.compare(fitness[a], fitness[b]));
+            
+            // Update best
+            if (fitness[indices[0]] < bestCost) {
+                bestCost = fitness[indices[0]];
+                bestPerm = population.get(indices[0]).clone();
             }
             
             if (printEvery > 0 && gen % printEvery == 0) {
                 double avgFitness = Arrays.stream(fitness).average().orElse(0.0);
-                System.out.printf("Gen %d: Best=%.2f, Avg=%.2f, BestLen=%d%n", 
-                    gen, bestCost, avgFitness, bestWalk.size());
+                System.out.printf("Gen %d: Best=%.4f, Avg=%.4f%n", gen, bestCost, avgFitness);
             }
             
-            // Nova generacija
-            List<List<Integer>> newPopulation = new ArrayList<>();
+            // Nova generacija s elitizmom
+            List<int[]> newPopulation = new ArrayList<>();
             
+            // Sačuvaj elite
+            for (int i = 0; i < eliteCount; i++) {
+                newPopulation.add(population.get(indices[i]).clone());
+            }
+            
+            // Generiraj ostatak
             while (newPopulation.size() < popSize) {
                 // Tournament selection
-                List<Integer> parent1 = tournamentSelection(population, fitness);
-                List<Integer> parent2 = tournamentSelection(population, fitness);
+                int[] parent1 = tournamentSelect(population, fitness, 3);
+                int[] parent2 = tournamentSelect(population, fitness, 3);
                 
-                // Crossover
-                List<Integer> offspring = crossover(parent1, parent2, n);
+                // Order Crossover (OX)
+                int[] offspring = orderCrossover(parent1, parent2);
                 
-                // Mutation
+                // Mutation (swap mutation)
                 if (rand.nextDouble() < mutationRate) {
-                    mutate(offspring, n);
+                    swapMutation(offspring);
+                }
+                
+                // Local search na dijelu populacije (intenzifikacija)
+                if (rand.nextDouble() < 0.1) { // 10% šanse za local search
+                    offspring = twoOptImprove(offspring, minDist);
                 }
                 
                 newPopulation.add(offspring);
@@ -72,211 +89,202 @@ public class GAWalk {
             population = newPopulation;
         }
         
-        return new Result(bestCost, bestWalk);
+        // Finalni local search na best solution
+        if (bestPerm != null) {
+            bestPerm = twoOptImprove(bestPerm, minDist);
+            bestCost = evaluatePerm(bestPerm, minDist);
+        }
+        
+        return new Result(bestCost, permToWalk(bestPerm, g));
     }
     
-    private static List<List<Integer>> initializePopulation(Graph g, int popSize) {
-        List<List<Integer>> population = new ArrayList<>();
+    private static List<int[]> initializePopulation(Graph g, int popSize) {
         int n = g.n;
+        List<int[]> population = new ArrayList<>();
         
-        // Prvo rješenje: greedy
-        population.add(greedyWalk(g));
+        // Greedy nearest neighbor
+        population.add(greedyPerm(g));
         
-        // Ostala rješenja: random walks sa varijabilnom duljinom
+        // Random permutacije
         for (int i = 1; i < popSize; i++) {
-            List<Integer> walk = randomWalk(n);
-            population.add(walk);
+            int[] perm = new int[n];
+            for (int j = 0; j < n; j++) perm[j] = j;
+            shuffleArray(perm);
+            population.add(perm);
         }
         
         return population;
     }
     
-    private static List<Integer> randomWalk(int n) {
-        List<Integer> walk = new ArrayList<>();
-        boolean[] visited = new boolean[n];
-        
-        // Prvo posjeti sve čvorove (random redoslijed)
-        List<Integer> nodes = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            nodes.add(i);
-        }
-        Collections.shuffle(nodes, rand);
-        walk.addAll(nodes);
-        
-        // Dodaj random duplikate (produlji walk)
-        int extraNodes = rand.nextInt(n); // Do n dodatnih čvorova
-        for (int i = 0; i < extraNodes; i++) {
-            walk.add(rand.nextInt(n));
-        }
-        
-        return walk;
-    }
-    
-    private static List<Integer> greedyWalk(Graph g) {
+    private static int[] greedyPerm(Graph g) {
         int n = g.n;
-        double[][] distances = g.distance_matrix;
-        
-        List<Integer> walk = new ArrayList<>();
+        double[][] minDist = g.min_distances;
+        int[] perm = new int[n];
         boolean[] visited = new boolean[n];
         
-        int current = 0;
-        walk.add(current);
-        visited[current] = true;
+        perm[0] = 0;
+        visited[0] = true;
         
         for (int i = 1; i < n; i++) {
-            int next = -1;
-            double minDist = Double.MAX_VALUE;
-            
+            int best = -1;
+            double bestDist = Double.MAX_VALUE;
             for (int j = 0; j < n; j++) {
-                if (!visited[j] && distances[current][j] < minDist) {
-                    minDist = distances[current][j];
-                    next = j;
+                if (!visited[j] && minDist[perm[i-1]][j] < bestDist) {
+                    bestDist = minDist[perm[i-1]][j];
+                    best = j;
                 }
             }
-            
-            walk.add(next);
-            visited[next] = true;
-            current = next;
+            perm[i] = best;
+            visited[best] = true;
         }
         
-        return walk;
+        return perm;
     }
     
-    private static double evaluateWalk(List<Integer> walk, double[][] distances) {
-        if (walk.size() < 2) return Double.MAX_VALUE;
-        
-        int n = distances.length;
-        Set<Integer> visited = new HashSet<>(walk);
-        
-        // Walk MORA pokrivati sve čvorove
-        if (visited.size() < n) {
-            return Double.MAX_VALUE;
+    private static double evaluatePerm(int[] perm, double[][] minDist) {
+        double cost = 0;
+        int n = perm.length;
+        for (int i = 0; i < n - 1; i++) {
+            cost += minDist[perm[i]][perm[i + 1]];
         }
-        
-        double cost = 0.0;
-        for (int i = 0; i < walk.size() - 1; i++) {
-            cost += distances[walk.get(i)][walk.get(i + 1)];
-        }
-        cost += distances[walk.get(walk.size() - 1)][walk.get(0)];
-        
+        cost += minDist[perm[n - 1]][perm[0]];
         return cost;
     }
     
-    private static List<Integer> tournamentSelection(List<List<Integer>> population, double[] fitness) {
-        int tournamentSize = 3;
+    private static int[] tournamentSelect(List<int[]> population, double[] fitness, int k) {
         int best = rand.nextInt(population.size());
-        
-        for (int i = 1; i < tournamentSize; i++) {
+        for (int i = 1; i < k; i++) {
             int competitor = rand.nextInt(population.size());
             if (fitness[competitor] < fitness[best]) {
                 best = competitor;
             }
         }
-        
-        return new ArrayList<>(population.get(best));
+        return population.get(best);
     }
     
     /**
-     * Segment exchange crossover
-     * Uzmi segment iz parent1, ostatak iz parent2, dodaj missing čvorove ako treba
+     * Order Crossover (OX) - standardni crossover za permutacije
      */
-    private static List<Integer> crossover(List<Integer> parent1, List<Integer> parent2, int n) {
-        if (parent1.isEmpty() || parent2.isEmpty()) {
-            return new ArrayList<>(parent1.isEmpty() ? parent2 : parent1);
+    private static int[] orderCrossover(int[] parent1, int[] parent2) {
+        int n = parent1.length;
+        int[] offspring = new int[n];
+        Arrays.fill(offspring, -1);
+        
+        // Izaberi segment iz parent1
+        int start = rand.nextInt(n);
+        int end = rand.nextInt(n);
+        if (start > end) { int tmp = start; start = end; end = tmp; }
+        
+        // Kopiraj segment
+        Set<Integer> used = new HashSet<>();
+        for (int i = start; i <= end; i++) {
+            offspring[i] = parent1[i];
+            used.add(parent1[i]);
         }
         
-        int len1 = parent1.size();
-        int len2 = parent2.size();
-        
-        // Izaberi random segment iz parent1
-        int start = rand.nextInt(len1);
-        int end = start + 1 + rand.nextInt(Math.max(1, len1 - start));
-        
-        List<Integer> offspring = new ArrayList<>();
-        
-        // Dodaj segment iz parent1
-        for (int i = start; i < end && i < len1; i++) {
-            offspring.add(parent1.get(i));
-        }
-        
-        // Dodaj čvorove iz parent2
-        for (int node : parent2) {
-            offspring.add(node);
-        }
-        
-        // Provjeri da su svi čvorovi pokriveni i dodaj missing
-        Set<Integer> covered = new HashSet<>(offspring);
-        
+        // Popuni ostatak iz parent2
+        int pos = (end + 1) % n;
         for (int i = 0; i < n; i++) {
-            if (!covered.contains(i)) {
-                offspring.add(i);
+            int idx = (end + 1 + i) % n;
+            int gene = parent2[idx];
+            if (!used.contains(gene)) {
+                offspring[pos] = gene;
+                pos = (pos + 1) % n;
             }
-        }
-        
-        if (offspring.isEmpty()) {
-            return new ArrayList<>(parent1);
         }
         
         return offspring;
     }
     
-    /**
-     * Mutation: primijeni random operaciju
-     */
-    private static void mutate(List<Integer> walk, int n) {
-        if (walk.isEmpty()) return;
-        
-        int operation = rand.nextInt(4);
-        
-        switch (operation) {
-            case 0: // Insert
-                int node = rand.nextInt(n);
-                int pos = rand.nextInt(walk.size() + 1);
-                walk.add(pos, node);
-                break;
-            case 1: // Delete (samo duplikate)
-                if (walk.size() > n) {
-                    deleteDuplicate(walk, n);
-                }
-                break;
-            case 2: // Swap
-                if (walk.size() >= 2) {
-                    int i = rand.nextInt(walk.size());
-                    int j = rand.nextInt(walk.size());
-                    int temp = walk.get(i);
-                    walk.set(i, walk.get(j));
-                    walk.set(j, temp);
-                }
-                break;
-            case 3: // Replace
-                if (walk.size() >= 1) {
-                    int idx = rand.nextInt(walk.size());
-                    walk.set(idx, rand.nextInt(n));
-                }
-                break;
-        }
+    private static void swapMutation(int[] perm) {
+        int n = perm.length;
+        int i = rand.nextInt(n);
+        int j = rand.nextInt(n);
+        int tmp = perm[i];
+        perm[i] = perm[j];
+        perm[j] = tmp;
     }
     
-    private static void deleteDuplicate(List<Integer> walk, int n) {
-        Map<Integer, Integer> counts = new HashMap<>();
-        for (int node : walk) {
-            counts.put(node, counts.getOrDefault(node, 0) + 1);
-        }
+    /**
+     * 2-opt local search za poboljšanje permutacije
+     */
+    private static int[] twoOptImprove(int[] perm, double[][] minDist) {
+        int n = perm.length;
+        int[] best = perm.clone();
+        double bestCost = evaluatePerm(best, minDist);
         
-        List<Integer> duplicates = new ArrayList<>();
-        for (int i = 0; i < walk.size(); i++) {
-            if (counts.get(walk.get(i)) > 1) {
-                duplicates.add(i);
+        boolean improved = true;
+        int maxIter = 100; // Ograniči iteracije
+        int iter = 0;
+        
+        while (improved && iter++ < maxIter) {
+            improved = false;
+            for (int i = 0; i < n - 1; i++) {
+                for (int j = i + 2; j < n; j++) {
+                    // Probaj 2-opt swap
+                    double delta = calculate2OptDelta(best, i, j, minDist);
+                    if (delta < -1e-10) {
+                        reverse(best, i + 1, j);
+                        bestCost += delta;
+                        improved = true;
+                    }
+                }
             }
         }
         
-        if (!duplicates.isEmpty()) {
-            int posToDelete = duplicates.get(rand.nextInt(duplicates.size()));
-            walk.remove(posToDelete);
+        return best;
+    }
+    
+    private static double calculate2OptDelta(int[] perm, int i, int j, double[][] d) {
+        int n = perm.length;
+        int a = perm[i];
+        int b = perm[i + 1];
+        int c = perm[j];
+        int d_node = perm[(j + 1) % n];
+        
+        double oldDist = d[a][b] + d[c][d_node];
+        double newDist = d[a][c] + d[b][d_node];
+        
+        return newDist - oldDist;
+    }
+    
+    private static void reverse(int[] arr, int start, int end) {
+        while (start < end) {
+            int tmp = arr[start];
+            arr[start] = arr[end];
+            arr[end] = tmp;
+            start++;
+            end--;
         }
     }
     
+    private static void shuffleArray(int[] arr) {
+        for (int i = arr.length - 1; i > 0; i--) {
+            int j = rand.nextInt(i + 1);
+            int tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+        }
+    }
+    
+    /**
+     * Pretvori permutaciju u walk - jednostavno vraća permutaciju kao listu
+     * (za MCW, cost se računa iz min_distances, walk je samo redoslijed čvorova)
+     */
+    private static List<Integer> permToWalk(int[] perm, Graph g) {
+        List<Integer> walk = new ArrayList<>();
+        if (perm == null || perm.length == 0) return walk;
+        
+        for (int node : perm) {
+            walk.add(node);
+        }
+        // Zatvori walk
+        walk.add(perm[0]);
+        
+        return walk;
+    }
+    
     public static Result solve(Graph g) {
-        return solve(g, 50, 100, 0.2, 0);
+        return solve(g, 100, 100, 0.3, 0);
     }
 }

@@ -6,6 +6,7 @@ public class Result {
 
     public final double cost;
     public final List<Integer> tour;
+    public Object walk;
     
     public Result(double cost, List<Integer> tour) {
         this.cost = cost;

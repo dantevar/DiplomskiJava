@@ -9,8 +9,13 @@ public class GA {
 
     private static final Random rand = new Random();
 
-
+    // Overload bez crossoverRate - koristi default 0.70 (optimalni iz grid search-a)
     public static Result solve(Graph g, int popSize, int generations, double mutationRate, int printEvery) {
+        return solve(g, popSize, generations, mutationRate, 0.70, printEvery);
+    }
+
+    // Glavna metoda s crossoverRate parametrom
+    public static Result solve(Graph g, int popSize, int generations, double mutationRate, double crossoverRate, int printEvery) {
         int n = g.n;
         double[][] distances = g.min_distances;
         if (n <= 1) return new Result(0, Arrays.asList(0));
@@ -52,7 +57,15 @@ public class GA {
             while (newPop.size() < popSize) {
                 int[] parent1 = tournamentSelect(population, distances);
                 int[] parent2 = tournamentSelect(population, distances);
-                int[] child = orderCrossover(parent1, parent2);
+                
+                int[] child;
+                if (rand.nextDouble() < crossoverRate) {
+                    child = orderCrossover(parent1, parent2);
+                } else {
+                    // Bez crossovera - kopiramo boljeg roditelja
+                    child = (fitness(parent1, distances) < fitness(parent2, distances)) 
+                            ? parent1.clone() : parent2.clone();
+                }
                 
                 if (rand.nextDouble() < mutationRate) {
                     mutate(child);

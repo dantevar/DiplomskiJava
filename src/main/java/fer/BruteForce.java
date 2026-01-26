@@ -87,54 +87,71 @@ public class BruteForce {
     }
     
     /**
-     * Izračunava donju granicu troška za dovršenje ture
+     * Izračunava donju granicu troška za dovršenje ture.
+     * 
+     * Koristi MST-based lower bound koji je garantirano admisibilan:
+     * - Minimalni trošak da se posjete svi preostali čvorovi
+     * - Najjeftiniji povratak na početak
+     * 
+     * ISPRAVLJENO: Stari algoritam je bio preoptimističan i odbacivao dobre grane!
      */
     private static double calculateLowerBound(Graph g, int current, double currentCost, 
                                                boolean[] visited, double[][] minOutgoing) {
         int n = g.n;
+        
+        // Počnemo s trenutnim troškom
         double bound = currentCost;
         
-        // 1. Dodaj najjeftiniji izlaz iz trenutnog vrha prema neposjećenom vrhu
-        double minFromCurrent = Double.POSITIVE_INFINITY;
+        // Brojimo neposjećene čvorove
+        int unvisitedCount = 0;
+        for (int i = 1; i < n; i++) {
+            if (!visited[i]) unvisitedCount++;
+        }
+        
+        // Ako nema više neposjećenih, samo dodaj povratak
+        if (unvisitedCount == 0) {
+            return bound + g.min_distances[current][0];
+        }
+        
+        // MST-based lower bound:
+        // 1. Najjeftiniji brid od trenutnog čvora do bilo kojeg neposjećenog
+        double minToCurrent = Double.POSITIVE_INFINITY;
         for (int i = 1; i < n; i++) {
             if (!visited[i]) {
-                minFromCurrent = Math.min(minFromCurrent, g.min_distances[current][i]);
+                minToCurrent = Math.min(minToCurrent, g.min_distances[current][i]);
             }
         }
-        if (!Double.isInfinite(minFromCurrent)) {
-            bound += minFromCurrent;
-        }
         
-        // 2. Dodaj optimističku procjenu za svaki neposjećeni vrh
-        // (suma najmanjeg ulaznog i izlaznog brida, podijeljeno s 2)
+        // 2. MST svih neposjećenih čvorova (aproksimiran sumom najmanjih bridova)
+        // Za svaki neposjećeni čvor: najmanji brid prema bilo kojem DRUGOM neposjećenom ili current
+        double mstCost = 0;
         for (int i = 1; i < n; i++) {
-            if (visited[i]) continue;
-            
-            // Najmanji ulazni brid u i od bilo kojeg vrha
-            double minIn = Double.POSITIVE_INFINITY;
-            for (int j = 0; j < n; j++) {
-                if (i != j) {
-                    minIn = Math.min(minIn, g.min_distances[j][i]);
+            if (!visited[i]) {
+                double minEdge = Double.POSITIVE_INFINITY;
+                
+                // Najmanji brid prema bilo kojem drugom čvoru (posjećenom ili neposjećenom)
+                for (int j = 0; j < n; j++) {
+                    if (i != j) {
+                        minEdge = Math.min(minEdge, g.min_distances[i][j]);
+                    }
                 }
+                
+                // Dodaj pola (jer MST koristi svaki brid samo jednom, ali mi brojimo i ulaz i izlaz)
+                mstCost += minEdge / 2.0;
             }
-            
-            // Najmanji izlazni brid iz i prema bilo kojem vrhu
-            double minOut = minOutgoing[i][0]; // već preračunato
-            
-            // Optimistična procjena: prosječno ulaz+izlaz
-            bound += (minIn + minOut) / 2.0;
         }
         
-        // 3. Dodaj najjeftiniji povratak na 0 od nekog neposjećenog vrha
+        // 3. Najjeftiniji povratak na 0 od bilo kojeg neposjećenog
         double minToZero = Double.POSITIVE_INFINITY;
         for (int i = 1; i < n; i++) {
             if (!visited[i]) {
                 minToZero = Math.min(minToZero, g.min_distances[i][0]);
             }
         }
-        if (!Double.isInfinite(minToZero)) {
-            bound += minToZero;
-        }
+        
+        // Kombinacija: trenutni + putovanje do prvog + MST preostalih + povratak
+        // ALI: minToCurrent je već dio MST-a, pa ne dodajemo dvaput
+        bound += mstCost + minToZero;
         
         return bound;
     }

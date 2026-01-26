@@ -4,28 +4,62 @@ import java.util.*;
 import utils.*;
 
 /**
- * Adaptive Shortest Path Walker (ASPW)
+ * Adaptive Shortest Path Walker (ASPW) - POBOLJŠANA VERZIJA
  * 
  * Heuristika specifično dizajnirana za MCW problem.
  * Razlika od TSP algoritama: eksplicitno koristi shortest paths i dozvoljava
  * ponavljanje čvorova kao "bridges".
  * 
  * Faze:
- * 1. Greedy Coverage - pokrij sve čvorove najkraćim putevima
+ * 1. Multi-Start Greedy Coverage - pokrij sve čvorove (više strategija)
  * 2. Closing - zatvori walk natrag na 0
- * 3. Local Optimization - skrati nepotrebne petlje
+ * 3. Advanced Local Optimization - 2-opt, segment removal, shortcut insertion
  * 
- * Vremenska složenost: O(n³) (dominantno Floyd-Warshall)
+ * POBOLJŠANJA V2:
+ * - Multi-start: isprobaj više strategija odabira
+ * - Bolja selekcija: uključuje povratak na 0 u procjenu
+ * - Jača lokalna optimizacija: 2-opt + shortcut + node removal
+ * - Or-opt: premještanje segmenata
  * 
- * Napomena: Ovo NIJE egzaktni algoritam - daje približno rješenje.
+ * Vremenska složenost: O(n³) 
  */
 public class ASPW {
     
     /**
-     * Solve MCW with default alpha=0.4
+     * Solve MCW with default alpha=0.3
      */
     public static Result solve(Graph g) {
-        return solve(g, 0.4);
+        return solveMultiStart(g);
+    }
+    
+    /**
+     * Multi-start verzija - isprobaj više alpha vrijednosti i strategija
+     */
+    public static Result solveMultiStart(Graph g) {
+        double[] alphas = {0.0, 0.1, 0.2, 0.3, 0.4, 0.5};
+        
+        Result best = null;
+        
+        for (double alpha : alphas) {
+            Result r = solveSingleStart(g, alpha, false);
+            if (best == null || r.cost < best.cost) {
+                best = r;
+            }
+            
+            // Probaj i s "return cost" heuristikom
+            Result r2 = solveSingleStart(g, alpha, true);
+            if (r2.cost < best.cost) {
+                best = r2;
+            }
+        }
+        
+        // Dodatno: nearest neighbor kao početak
+        Result greedyStart = solveFromGreedy(g);
+        if (greedyStart.cost < best.cost) {
+            best = greedyStart;
+        }
+        
+        return best;
     }
     
     /**
@@ -36,6 +70,10 @@ public class ASPW {
      * @return Approximate solution
      */
     public static Result solve(Graph g, double alpha) {
+        return solveSingleStart(g, alpha, false);
+    }
+    
+    private static Result solveSingleStart(Graph g, double alpha, boolean considerReturn) {
         int n = g.n;
         double[][] minDist = g.min_distances;
         
@@ -54,7 +92,7 @@ public class ASPW {
             int current = walk.get(walk.size() - 1);
             
             // Select next node to cover
-            int next = selectNext(current, uncovered, minDist, alpha);
+            int next = selectNext(current, uncovered, minDist, alpha, considerReturn);
             
             // Reconstruct shortest path current→next and add to walk
             List<Integer> path = reconstructPath(current, next, g);
@@ -64,7 +102,10 @@ public class ASPW {
                 walk.add(path.get(i));
             }
             
-            uncovered.remove(next);
+            // Ukloni SVE čvorove na putu iz uncovered (ne samo destinaciju!)
+            for (int node : path) {
+                uncovered.remove(node);
+            }
         }
         
         // Phase 2: Closing
@@ -76,8 +117,8 @@ public class ASPW {
             }
         }
         
-        // Phase 3: Local Optimization
-        walk = localOptimization(walk, g);
+        // Phase 3: Advanced Local Optimization
+        walk = advancedLocalOptimization(walk, g);
         
         double cost = evaluateWalk(walk, g.distance_matrix);
         
@@ -85,16 +126,64 @@ public class ASPW {
     }
     
     /**
-     * Select next node to cover based on distance and centrality
-     * 
-     * @param current Current position
-     * @param uncovered Remaining nodes to cover
-     * @param minDist Shortest distances matrix
-     * @param alpha Balance factor
-     * @return Best next node
+     * Počni od greedy nearest neighbor i optimiziraj
+     */
+    private static Result solveFromGreedy(Graph g) {
+        int n = g.n;
+        double[][] minDist = g.min_distances;
+        
+        List<Integer> walk = new ArrayList<>();
+        walk.add(0);
+        
+        Set<Integer> uncovered = new HashSet<>();
+        for (int i = 1; i < n; i++) {
+            uncovered.add(i);
+        }
+        
+        // Pure nearest neighbor
+        while (!uncovered.isEmpty()) {
+            int current = walk.get(walk.size() - 1);
+            
+            int nearest = -1;
+            double nearestDist = Double.MAX_VALUE;
+            for (int candidate : uncovered) {
+                if (minDist[current][candidate] < nearestDist) {
+                    nearestDist = minDist[current][candidate];
+                    nearest = candidate;
+                }
+            }
+            
+            // Dodaj shortest path
+            List<Integer> path = reconstructPath(current, nearest, g);
+            for (int i = 1; i < path.size(); i++) {
+                walk.add(path.get(i));
+            }
+            
+            for (int node : path) {
+                uncovered.remove(node);
+            }
+        }
+        
+        // Close
+        int last = walk.get(walk.size() - 1);
+        if (last != 0) {
+            List<Integer> closingPath = reconstructPath(last, 0, g);
+            for (int i = 1; i < closingPath.size(); i++) {
+                walk.add(closingPath.get(i));
+            }
+        }
+        
+        walk = advancedLocalOptimization(walk, g);
+        double cost = evaluateWalk(walk, g.distance_matrix);
+        
+        return new Result(cost, walk);
+    }
+    
+    /**
+     * Select next node to cover based on distance, centrality, and return cost
      */
     private static int selectNext(int current, Set<Integer> uncovered, 
-                                   double[][] minDist, double alpha) {
+                                   double[][] minDist, double alpha, boolean considerReturn) {
         int best = -1;
         double bestScore = Double.MAX_VALUE;
         
@@ -105,8 +194,11 @@ public class ASPW {
             // Average distance from candidate to remaining nodes (centrality)
             double avgRemaining = avgDistanceToRemaining(candidate, uncovered, minDist);
             
-            // Combined score: immediate cost + future cost estimate
-            double score = dist + alpha * avgRemaining;
+            // Return cost to 0 (važno za završetak!)
+            double returnCost = considerReturn ? minDist[candidate][0] * 0.3 : 0;
+            
+            // Combined score
+            double score = dist + alpha * avgRemaining + returnCost;
             
             if (score < bestScore) {
                 bestScore = score;
@@ -138,145 +230,273 @@ public class ASPW {
     }
     
     /**
-     * Reconstruct shortest path from start to end
-     * 
-     * Koristi Floyd-Warshall next-hop matricu za rekonstrukciju.
-     * nextHops.get(u) daje array mogućih first hops iz u.
-     * Moramo rekurzivno tražiti put do destinacije.
-     * 
-     * @param start Starting node
-     * @param end Target node
-     * @param g Graph with min_distances and distance_matrix
-     * @return Path as list of nodes
+     * Reconstruct shortest path from start to end using predecessor info
      */
     private static List<Integer> reconstructPath(int start, int end, Graph g) {
         if (start == end) {
             return Arrays.asList(start);
         }
         
-        // Koristi BFS za rekonstrukciju puta
-        // Traži put gdje je udaljenost = min_distance
         int n = g.n;
         double[][] minDist = g.min_distances;
         double[][] directDist = g.distance_matrix;
         
-        // BFS za pronalaženje shortest path
-        Queue<List<Integer>> queue = new LinkedList<>();
-        queue.add(Arrays.asList(start));
+        // Jednostavnija rekonstrukcija - traži greedy put
+        List<Integer> path = new ArrayList<>();
+        path.add(start);
         
-        while (!queue.isEmpty()) {
-            List<Integer> currentPath = queue.poll();
-            int current = currentPath.get(currentPath.size() - 1);
+        int current = start;
+        int maxSteps = n * 2; // Zaštita od beskonačne petlje
+        int steps = 0;
+        
+        while (current != end && steps < maxSteps) {
+            steps++;
+            int bestNext = -1;
+            double bestProgress = Double.MAX_VALUE;
             
-            if (current == end) {
-                return currentPath;
-            }
-            
-            // Provjeri moguće next hops
             for (int next = 0; next < n; next++) {
-                if (next == current || currentPath.contains(next)) continue;
+                if (next == current) continue;
                 
-                // Provjeri da li next vodi prema end s optimalnom udaljenošću
-                double pathSoFar = 0.0;
-                for (int i = 0; i < currentPath.size() - 1; i++) {
-                    pathSoFar += directDist[currentPath.get(i)][currentPath.get(i + 1)];
-                }
-                pathSoFar += directDist[current][next];
+                // Biramo čvor koji nas vodi bliže cilju
+                double progressScore = directDist[current][next] + minDist[next][end];
                 
-                double remainingOptimal = minDist[next][end];
-                double totalExpected = minDist[start][end];
-                
-                // Ako je put + remaining = total optimal, nastavi
-                if (Math.abs(pathSoFar + remainingOptimal - totalExpected) < 1e-9) {
-                    List<Integer> newPath = new ArrayList<>(currentPath);
-                    newPath.add(next);
-                    queue.add(newPath);
+                // Provjeri da je to dio optimalnog puta
+                if (Math.abs(directDist[current][next] + minDist[next][end] - minDist[current][end]) < 1e-9) {
+                    if (progressScore < bestProgress) {
+                        bestProgress = progressScore;
+                        bestNext = next;
+                    }
                 }
             }
+            
+            if (bestNext == -1) {
+                // Fallback: direktan skok
+                path.add(end);
+                break;
+            }
+            
+            path.add(bestNext);
+            current = bestNext;
         }
         
-        // Fallback: direktan edge ako BFS ne uspije
-        return Arrays.asList(start, end);
+        return path;
     }
     
     /**
-     * Local optimization phase: remove redundant loops and optimize segments
-     * 
-     * @param walk Current walk
-     * @param g Graph
-     * @return Optimized walk
+     * Advanced local optimization with multiple operators
      */
-    private static List<Integer> localOptimization(List<Integer> walk, Graph g) {
+    private static List<Integer> advancedLocalOptimization(List<Integer> walk, Graph g) {
         List<Integer> optimized = new ArrayList<>(walk);
+        int n = g.n;
         boolean improved = true;
         int iterations = 0;
-        int maxIterations = 10;
+        int maxIterations = 50;  // Više iteracija
         
         while (improved && iterations < maxIterations) {
             improved = false;
             iterations++;
             
-            // Operator 1: Remove redundant segments
-            // If segment a→...→b can be replaced with direct path a→b
-            for (int i = 0; i < optimized.size() - 3; i++) {
-                for (int j = i + 3; j < optimized.size(); j++) {
-                    int a = optimized.get(i);
-                    int b = optimized.get(j);
-                    
-                    // Check if all nodes in segment are still covered elsewhere
-                    Set<Integer> segmentNodes = new HashSet<>();
-                    for (int k = i + 1; k < j; k++) {
-                        segmentNodes.add(optimized.get(k));
-                    }
-                    
-                    // Check if these nodes appear elsewhere in walk
-                    boolean allCoveredElsewhere = true;
-                    for (int node : segmentNodes) {
-                        boolean foundElsewhere = false;
-                        for (int k = 0; k < optimized.size(); k++) {
-                            if ((k < i || k > j) && optimized.get(k) == node) {
-                                foundElsewhere = true;
-                                break;
-                            }
-                        }
-                        if (!foundElsewhere) {
-                            allCoveredElsewhere = false;
-                            break;
-                        }
-                    }
-                    
-                    if (allCoveredElsewhere) {
-                        // Try replacing segment with shortest path
-                        List<Integer> shortcut = reconstructPath(a, b, g);
-                        
-                        // Calculate costs
-                        double oldCost = segmentCost(optimized, i, j, g.distance_matrix);
-                        double newCost = pathCost(shortcut, g.distance_matrix);
-                        
-                        if (newCost < oldCost) {
-                            // Replace segment
-                            List<Integer> newWalk = new ArrayList<>();
-                            for (int k = 0; k <= i; k++) {
-                                newWalk.add(optimized.get(k));
-                            }
-                            for (int k = 1; k < shortcut.size(); k++) {
-                                newWalk.add(shortcut.get(k));
-                            }
-                            for (int k = j + 1; k < optimized.size(); k++) {
-                                newWalk.add(optimized.get(k));
-                            }
-                            
-                            optimized = newWalk;
-                            improved = true;
-                            break;
-                        }
-                    }
-                }
-                if (improved) break;
+            double currentCost = evaluateWalk(optimized, g.distance_matrix);
+            
+            // Operator 1: 2-opt za MCW (swap segmenata)
+            List<Integer> after2opt = try2Opt(optimized, g, currentCost);
+            if (after2opt != null) {
+                optimized = after2opt;
+                improved = true;
+                continue;
+            }
+            
+            // Operator 2: Shortcut - zamijeni segment s kraćim putem
+            List<Integer> afterShortcut = tryShortcut(optimized, g, currentCost);
+            if (afterShortcut != null) {
+                optimized = afterShortcut;
+                improved = true;
+                continue;
+            }
+            
+            // Operator 3: Node removal - ukloni nepotrebne čvorove
+            List<Integer> afterRemoval = tryNodeRemoval(optimized, g, n, currentCost);
+            if (afterRemoval != null) {
+                optimized = afterRemoval;
+                improved = true;
+                continue;
             }
         }
         
         return optimized;
+    }
+    
+    /**
+     * 2-opt: pokušaj preokrenuti segment
+     */
+    private static List<Integer> try2Opt(List<Integer> walk, Graph g, double currentCost) {
+        int len = walk.size();
+        double[][] dist = g.distance_matrix;
+        
+        for (int i = 0; i < len - 2; i++) {
+            for (int j = i + 2; j < len - 1; j++) {
+                // Provjeri sve čvorove u segmentu - moraju biti pokriveni
+                
+                // Izračunaj ušteku od 2-opt
+                int a = walk.get(i);
+                int b = walk.get(i + 1);
+                int c = walk.get(j);
+                int d = walk.get(j + 1);
+                
+                double oldEdges = dist[a][b] + dist[c][d];
+                double newEdges = dist[a][c] + dist[b][d];
+                
+                if (newEdges < oldEdges - 1e-9) {
+                    // Preokreni segment [i+1, j]
+                    List<Integer> newWalk = new ArrayList<>();
+                    for (int k = 0; k <= i; k++) {
+                        newWalk.add(walk.get(k));
+                    }
+                    for (int k = j; k >= i + 1; k--) {
+                        newWalk.add(walk.get(k));
+                    }
+                    for (int k = j + 1; k < len; k++) {
+                        newWalk.add(walk.get(k));
+                    }
+                    
+                    // Provjeri da je valid walk
+                    if (isValidWalk(newWalk, g.n)) {
+                        double newCost = evaluateWalk(newWalk, dist);
+                        if (newCost < currentCost - 1e-9) {
+                            return newWalk;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Shortcut: zamijeni segment s kraćim putem
+     */
+    private static List<Integer> tryShortcut(List<Integer> walk, Graph g, double currentCost) {
+        double[][] dist = g.distance_matrix;
+        
+        for (int i = 0; i < walk.size() - 3; i++) {
+            for (int j = i + 3; j < walk.size(); j++) {
+                int a = walk.get(i);
+                int b = walk.get(j);
+                
+                // Provjeri jesu li svi čvorovi u segmentu pokriveni drugdje
+                Set<Integer> segmentNodes = new HashSet<>();
+                for (int k = i + 1; k < j; k++) {
+                    segmentNodes.add(walk.get(k));
+                }
+                
+                boolean allCoveredElsewhere = true;
+                for (int node : segmentNodes) {
+                    boolean found = false;
+                    for (int k = 0; k < walk.size(); k++) {
+                        if ((k <= i || k >= j) && walk.get(k) == node) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        allCoveredElsewhere = false;
+                        break;
+                    }
+                }
+                
+                if (allCoveredElsewhere) {
+                    // Zamijeni s shortest path
+                    List<Integer> shortcut = reconstructPath(a, b, g);
+                    
+                    double oldCost = segmentCost(walk, i, j, dist);
+                    double newCost = pathCost(shortcut, dist);
+                    
+                    if (newCost < oldCost - 1e-9) {
+                        List<Integer> newWalk = new ArrayList<>();
+                        for (int k = 0; k <= i; k++) {
+                            newWalk.add(walk.get(k));
+                        }
+                        for (int k = 1; k < shortcut.size(); k++) {
+                            newWalk.add(shortcut.get(k));
+                        }
+                        for (int k = j + 1; k < walk.size(); k++) {
+                            newWalk.add(walk.get(k));
+                        }
+                        
+                        if (isValidWalk(newWalk, g.n)) {
+                            double totalNewCost = evaluateWalk(newWalk, dist);
+                            if (totalNewCost < currentCost - 1e-9) {
+                                return newWalk;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Node removal: ukloni čvor ako je pokriven drugdje
+     */
+    private static List<Integer> tryNodeRemoval(List<Integer> walk, Graph g, int n, double currentCost) {
+        double[][] dist = g.distance_matrix;
+        
+        for (int i = 1; i < walk.size() - 1; i++) {
+            int node = walk.get(i);
+            
+            // Provjeri pojavljuje li se čvor drugdje
+            boolean appearsElsewhere = false;
+            for (int j = 0; j < walk.size(); j++) {
+                if (j != i && walk.get(j) == node) {
+                    appearsElsewhere = true;
+                    break;
+                }
+            }
+            
+            if (appearsElsewhere) {
+                int prev = walk.get(i - 1);
+                int next = walk.get(i + 1);
+                
+                // Pokušaj ukloniti i spojiti s shortest path
+                List<Integer> bridge = reconstructPath(prev, next, g);
+                
+                double oldCost = dist[prev][node] + dist[node][next];
+                double newCost = pathCost(bridge, dist);
+                
+                if (newCost < oldCost - 1e-9) {
+                    List<Integer> newWalk = new ArrayList<>();
+                    for (int k = 0; k < i; k++) {
+                        newWalk.add(walk.get(k));
+                    }
+                    for (int k = 1; k < bridge.size(); k++) {
+                        newWalk.add(bridge.get(k));
+                    }
+                    for (int k = i + 2; k < walk.size(); k++) {
+                        newWalk.add(walk.get(k));
+                    }
+                    
+                    if (isValidWalk(newWalk, n)) {
+                        double totalNewCost = evaluateWalk(newWalk, dist);
+                        if (totalNewCost < currentCost - 1e-9) {
+                            return newWalk;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Provjeri je li walk validan (posjećuje sve čvorove)
+     */
+    private static boolean isValidWalk(List<Integer> walk, int n) {
+        Set<Integer> visited = new HashSet<>(walk);
+        for (int i = 0; i < n; i++) {
+            if (!visited.contains(i)) return false;
+        }
+        return walk.get(0) == 0; // Mora početi sa 0
     }
     
     /**

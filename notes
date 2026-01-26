@@ -46,6 +46,11 @@
     - prikaz rjesenja
     - analiza performansi
 
+5.5
+    rjesavanje visekriterijsku optimizaciju min walk problema
+    -min walk sa vise ciljeva (npr. min cost, min time, max sigurnost)
+    -prilagodba heuristika i metaheuristika za visekriterijsku optim
+    -linearna kombinacija ciljeva
 5.9 - metricki grafovi
     - vizualizaijca algoritmi 
     - ne-egzaktni algoritmi
