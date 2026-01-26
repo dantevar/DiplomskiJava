@@ -47,7 +47,7 @@ public class MemeticGASA {
                                double mutationRate, double saApplyRate, 
                                int printEvery) {
         int n = g.n;
-        double[][] distances = g.distance_matrix;
+        double[][] distances = g.min_distances;  // MORA biti min_distances za MCW!
         
         if (n <= 1) return new Result(0, Arrays.asList(0));
         
@@ -164,7 +164,7 @@ public class MemeticGASA {
     
     private static List<Integer> greedyWalk(Graph g) {
         int n = g.n;
-        double[][] distances = g.distance_matrix;
+        double[][] distances = g.min_distances;
         
         List<Integer> walk = new ArrayList<>();
         boolean[] visited = new boolean[n];
@@ -200,7 +200,7 @@ public class MemeticGASA {
     private static List<Integer> localSearchSA(List<Integer> walk, Graph g,
                                                 double T0, double alpha, int iterations) {
         List<Integer> current = new ArrayList<>(walk);
-        double currentCost = evaluateWalk(current, g.distance_matrix);
+        double currentCost = evaluateWalk(current, g.min_distances);
         
         List<Integer> best = new ArrayList<>(current);
         double bestCost = currentCost;
@@ -211,7 +211,7 @@ public class MemeticGASA {
         for (int iter = 0; iter < iterations; iter++) {
             // Generate neighbor
             List<Integer> neighbor = generateNeighbor(current, n);
-            double neighborCost = evaluateWalk(neighbor, g.distance_matrix);
+            double neighborCost = evaluateWalk(neighbor, g.min_distances);
             
             // Accept or reject
             double delta = neighborCost - currentCost;

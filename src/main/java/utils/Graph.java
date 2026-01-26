@@ -9,7 +9,7 @@ public class Graph {
 	public List<int[]> nextHops;
 	public int n ;
 	public double optimalCost;
-	List<Integer> optimalWalk;
+	public List<Integer> optimalWalk;
 
 	public Graph(double[][] distance_matrix) {
 		

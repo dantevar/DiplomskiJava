@@ -13,7 +13,7 @@ public class DatasetGenerator {
 
     public static void main(String[] args) {
         int minN = 24;
-        int maxN = 24;
+        int maxN = 25;
         int instancesPerN = 1000;
         String baseDir = "data";
 

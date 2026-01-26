@@ -2,102 +2,362 @@ package metaheuristika;
 
 import utils.*;
 import fer.*;
+import java.io.*;
+import java.util.*;
+
 /**
- * Usporedba GA sa dvije reprezentacije:
- * 1. GA (standardni): Permutacija + min_distances
- * 2. GAWalk: Cijeli walk sa ponavljanjima
+ * Grid Search za parametre GA i GAWalk algoritama.
+ * Koristi instance iz data/ foldera s poznatim optimalnim rješenjima.
+ * PRIKAZUJE ZASEBNE REZULTATE ZA SVAKI N!
  */
 public class GAComparisonMain {
     
+    // Grid search parametri
+    static int[] POPULATION_SIZES = {20, 50, 100};
+    static int[] GENERATIONS = {50, 100, 200};
+    static double[] MUTATION_RATES = {0.1, 0.2, 0.3};
+    static double[] CROSSOVER_RATES = {0.7, 0.8, 0.9};
+    
+    // Koliko instanci testirati po N
+    static int INSTANCES_PER_N = 20;
+    static int[] TEST_N_VALUES = {10, 15, 20};
+    
     public static void main(String[] args) {
-        // Test graf
-        int n = 25;
-        double[][] distances = GraphGenerator.generateRandomGraphSeed(n, 1234);
-        Graph graph = new Graph(distances);
-        
-        System.out.println("=== GA Representation Comparison ===");
-        System.out.println("Graph: n=" + n);
+        System.out.println("╔══════════════════════════════════════════════════════════════════════════╗");
+        System.out.println("║       GA vs GAWalk - GRID SEARCH (ZASEBNO ZA SVAKI N)                    ║");
+        System.out.println("╚══════════════════════════════════════════════════════════════════════════╝");
         System.out.println();
         
-        int popSize = 50;
-        int generations = 100;
-        double mutationRate = 0.2;
-        int printEvery = 10;
+        // Učitaj instance
+        Map<Integer, List<TestInstance>> allInstances = loadInstances();
         
-        System.out.println("Parameters:");
-        System.out.println("  Population: " + popSize);
-        System.out.println("  Generations: " + generations);
-        System.out.println("  Mutation rate: " + mutationRate);
-        System.out.println();
-        
-        // 1. Standardni GA (permutacija + min_distances)
-        System.out.println("--- GA Standard (Permutation + min_distances) ---");
-        long start1 = System.currentTimeMillis();
-        Result result1 = GA.solve(graph, popSize, generations, mutationRate, printEvery);
-        long duration1 = System.currentTimeMillis() - start1;
-        
-        System.out.println("\nGA Standard Result:");
-        System.out.println("  Cost: " + result1.cost);
-        System.out.println("  Tour length: " + result1.tour.size());
-        System.out.println("  Tour: " + result1.tour);
-        System.out.println("  Time: " + duration1 + " ms");
-        System.out.println();
-        
-        // 2. GA-Walk (cijeli walk sa ponavljanjima)
-        System.out.println("--- GA-Walk (Full walk with repetitions) ---");
-        long start2 = System.currentTimeMillis();
-        Result result2 = GAWalk.solve(graph, popSize, generations, mutationRate, printEvery);
-        long duration2 = System.currentTimeMillis() - start2;
-        
-        System.out.println("\nGA-Walk Result:");
-        System.out.println("  Cost: " + result2.cost);
-        System.out.println("  Tour length: " + result2.tour.size());
-        System.out.println("  Tour: " + result2.tour);
-        System.out.println("  Time: " + duration2 + " ms");
-        System.out.println();
-        
-        // Optimum
-        System.out.println("--- Computing Optimal Solution ---");
-        long startOpt = System.currentTimeMillis();
-        Result optimal = ClosedWalkSolver.solve(graph);
-        long durationOpt = System.currentTimeMillis() - startOpt;
-        
-        System.out.println("Optimal: " + optimal.cost + " (" + durationOpt + " ms)");
-        System.out.println();
-        
-        // Usporedba
-        System.out.println("=== Comparison ===");
-        System.out.printf("GA Standard:  cost=%.2f, len=%d, time=%d ms%n", 
-            result1.cost, result1.tour.size(), duration1);
-        System.out.printf("GA Walk:      cost=%.2f, len=%d, time=%d ms%n", 
-            result2.cost, result2.tour.size(), duration2);
-        System.out.printf("Optimal:      cost=%.2f%n", optimal.cost);
-        System.out.println();
-        
-        double gap1 = (result1.cost - optimal.cost) / optimal.cost * 100;
-        double gap2 = (result2.cost - optimal.cost) / optimal.cost * 100;
-        
-        System.out.println("Gap to optimal:");
-        System.out.printf("  GA Standard: %.2f%%%n", gap1);
-        System.out.printf("  GA Walk:     %.2f%%%n", gap2);
-        System.out.println();
-        
-        if (result1.cost < result2.cost) {
-            double improvement = (result2.cost - result1.cost) / result1.cost * 100;
-            System.out.printf("Winner: GA Standard (%.2f%% better, %.1fx faster)%n", 
-                improvement, (double)duration2 / duration1);
-        } else if (result2.cost < result1.cost) {
-            double improvement = (result1.cost - result2.cost) / result2.cost * 100;
-            System.out.printf("Winner: GA Walk (%.2f%% better, %.1fx faster)%n", 
-                improvement, (double)duration1 / duration2);
-        } else {
-            System.out.printf("Tie! (Time difference: %.1fx)%n", 
-                (double)Math.max(duration1, duration2) / Math.min(duration1, duration2));
+        if (allInstances.isEmpty()) {
+            System.err.println("No instances found!");
+            return;
         }
         
+        System.out.println("Loaded instances: ");
+        for (var entry : allInstances.entrySet()) {
+            System.out.println("  N=" + entry.getKey() + ": " + entry.getValue().size() + " instances");
+        }
         System.out.println();
-        System.out.println("Key difference:");
-        System.out.println("  GA Standard: Fixed length (n=" + n + "), uses min_distances matrix");
-        System.out.println("  GA Walk:     Variable length (" + result2.tour.size() + "), uses direct distances, allows repetitions");
+        
+        // Rezultati po N
+        Map<Integer, GridResult> bestGAbyN = new TreeMap<>();
+        Map<Integer, GridResult> bestGAWalkByN = new TreeMap<>();
+        
+        // Grid search ZA SVAKI N ZASEBNO
+        for (int n : TEST_N_VALUES) {
+            if (!allInstances.containsKey(n)) {
+                System.out.println("Skipping N=" + n + " (no instances)");
+                continue;
+            }
+            
+            Map<Integer, List<TestInstance>> singleN = new TreeMap<>();
+            singleN.put(n, allInstances.get(n));
+            
+            System.out.println();
+            System.out.println("═══════════════════════════════════════════════════════════════════════════");
+            System.out.println("                        N = " + n + " - GA STANDARD");
+            System.out.println("═══════════════════════════════════════════════════════════════════════════");
+            GridResult bestGA = gridSearchGA(singleN);
+            bestGAbyN.put(n, bestGA);
+            
+            System.out.println();
+            System.out.println("═══════════════════════════════════════════════════════════════════════════");
+            System.out.println("                        N = " + n + " - GA WALK");
+            System.out.println("═══════════════════════════════════════════════════════════════════════════");
+            GridResult bestGAWalk = gridSearchGAWalk(singleN);
+            bestGAWalkByN.put(n, bestGAWalk);
+        }
+        
+        // Finalna usporedba
+        System.out.println();
+        System.out.println("╔══════════════════════════════════════════════════════════════════════════╗");
+        System.out.println("║                     FINAL COMPARISON BY N                                ║");
+        System.out.println("╚══════════════════════════════════════════════════════════════════════════╝");
+        System.out.println();
+        
+        System.out.println("┌────────┬─────────────────────────────────────────┬─────────────────────────────────────────┐");
+        System.out.println("│   N    │              GA STANDARD                │               GA WALK                   │");
+        System.out.println("├────────┼─────────────────────────────────────────┼─────────────────────────────────────────┤");
+        
+        for (int n : TEST_N_VALUES) {
+            GridResult ga = bestGAbyN.get(n);
+            GridResult gawalk = bestGAWalkByN.get(n);
+            if (ga == null || gawalk == null) continue;
+            
+            String gaParams = String.format("P=%d G=%d M=%.1f C=%.1f Gap=%.2f%%", 
+                ga.popSize, ga.generations, ga.mutationRate, ga.crossoverRate, ga.avgGap);
+            String walkParams = String.format("P=%d G=%d M=%.1f C=%.1f Gap=%.2f%%",
+                gawalk.popSize, gawalk.generations, gawalk.mutationRate, gawalk.crossoverRate, gawalk.avgGap);
+            
+            String winner = ga.avgGap < gawalk.avgGap ? "←" : (gawalk.avgGap < ga.avgGap ? "→" : "=");
+            
+            System.out.printf("│  %2d    │ %-39s │ %-39s │ %s%n", n, gaParams, walkParams, winner);
+        }
+        System.out.println("└────────┴─────────────────────────────────────────┴─────────────────────────────────────────┘");
+        
+        // Export rezultata
+        exportResultsByN(bestGAbyN, bestGAWalkByN);
+    }
+    
+    static List<GridResult> gaResults = new ArrayList<>();
+    static List<GridResult> gaWalkResults = new ArrayList<>();
+    
+    static GridResult gridSearchGA(Map<Integer, List<TestInstance>> instances) {
+        gaResults.clear();
+        int totalConfigs = POPULATION_SIZES.length * GENERATIONS.length * 
+                           MUTATION_RATES.length * CROSSOVER_RATES.length;
+        int currentConfig = 0;
+        
+        System.out.println("Testing " + totalConfigs + " parameter configurations...");
+        System.out.println();
+        System.out.println("Pop\tGen\tMut\tCross\tAvgGap%\t\tAvgTime(ms)");
+        System.out.println("─".repeat(60));
+        
+        for (int popSize : POPULATION_SIZES) {
+            for (int generations : GENERATIONS) {
+                for (double mutRate : MUTATION_RATES) {
+                    for (double crossRate : CROSSOVER_RATES) {
+                        currentConfig++;
+                        
+                        double totalGap = 0;
+                        long totalTime = 0;
+                        int count = 0;
+                        
+                        for (var entry : instances.entrySet()) {
+                            for (TestInstance inst : entry.getValue()) {
+                                long start = System.currentTimeMillis();
+                                Result result = GA.solve(inst.graph, popSize, generations, mutRate, 0);
+                                long time = System.currentTimeMillis() - start;
+                                
+                                double gap = (result.cost - inst.optimalCost) / inst.optimalCost * 100;
+                                totalGap += gap;
+                                totalTime += time;
+                                count++;
+                            }
+                        }
+                        
+                        double avgGap = totalGap / count;
+                        double avgTime = (double) totalTime / count;
+                        
+                        gaResults.add(new GridResult(popSize, generations, mutRate, crossRate, avgGap, avgTime));
+                        
+                        System.out.printf("%d\t%d\t%.2f\t%.2f\t%.4f\t\t%.1f%n",
+                            popSize, generations, mutRate, crossRate, avgGap, avgTime);
+                    }
+                }
+            }
+        }
+        
+        // Pronađi najbolji rezultat
+        GridResult best = gaResults.stream()
+            .min(Comparator.comparingDouble(r -> r.avgGap))
+            .orElseThrow();
+        
+        System.out.println("─".repeat(60));
+        System.out.printf("BEST: Pop=%d, Gen=%d, Mut=%.2f, Cross=%.2f → Gap=%.4f%%%n",
+            best.popSize, best.generations, best.mutationRate, best.crossoverRate, best.avgGap);
+        
+        return best;
+    }
+    
+    static GridResult gridSearchGAWalk(Map<Integer, List<TestInstance>> instances) {
+        gaWalkResults.clear();
+        int totalConfigs = POPULATION_SIZES.length * GENERATIONS.length * 
+                           MUTATION_RATES.length * CROSSOVER_RATES.length;
+        
+        System.out.println("Testing " + totalConfigs + " parameter configurations...");
+        System.out.println();
+        System.out.println("Pop\tGen\tMut\tCross\tAvgGap%\t\tAvgTime(ms)");
+        System.out.println("─".repeat(60));
+        
+        for (int popSize : POPULATION_SIZES) {
+            for (int generations : GENERATIONS) {
+                for (double mutRate : MUTATION_RATES) {
+                    for (double crossRate : CROSSOVER_RATES) {
+                        double totalGap = 0;
+                        long totalTime = 0;
+                        int count = 0;
+                        
+                        for (var entry : instances.entrySet()) {
+                            for (TestInstance inst : entry.getValue()) {
+                                long start = System.currentTimeMillis();
+                                Result result = GAWalk.solve(inst.graph, popSize, generations, mutRate, 0);
+                                long time = System.currentTimeMillis() - start;
+                                
+                                double gap = (result.cost - inst.optimalCost) / inst.optimalCost * 100;
+                                totalGap += gap;
+                                totalTime += time;
+                                count++;
+                            }
+                        }
+                        
+                        double avgGap = totalGap / count;
+                        double avgTime = (double) totalTime / count;
+                        
+                        gaWalkResults.add(new GridResult(popSize, generations, mutRate, crossRate, avgGap, avgTime));
+                        
+                        System.out.printf("%d\t%d\t%.2f\t%.2f\t%.4f\t\t%.1f%n",
+                            popSize, generations, mutRate, crossRate, avgGap, avgTime);
+                    }
+                }
+            }
+        }
+        
+        GridResult best = gaWalkResults.stream()
+            .min(Comparator.comparingDouble(r -> r.avgGap))
+            .orElseThrow();
+        
+        System.out.println("─".repeat(60));
+        System.out.printf("BEST: Pop=%d, Gen=%d, Mut=%.2f, Cross=%.2f → Gap=%.4f%%%n",
+            best.popSize, best.generations, best.mutationRate, best.crossoverRate, best.avgGap);
+        
+        return best;
+    }
+    
+    static Map<Integer, List<TestInstance>> loadInstances() {
+        Map<Integer, List<TestInstance>> result = new TreeMap<>();
+        String basePath = "data";
+        
+        for (int n : TEST_N_VALUES) {
+            String folderPath = basePath + "/n" + n;
+            File folder = new File(folderPath);
+            
+            if (!folder.exists() || !folder.isDirectory()) {
+                continue;
+            }
+            
+            List<TestInstance> instances = new ArrayList<>();
+            File[] files = folder.listFiles((dir, name) -> name.endsWith(".txt"));
+            
+            if (files == null) continue;
+            
+            // Sortiraj numerički (instance_0, instance_1, ..., instance_10, ...)
+            Arrays.sort(files, (f1, f2) -> {
+                int num1 = extractInstanceNumber(f1.getName());
+                int num2 = extractInstanceNumber(f2.getName());
+                return Integer.compare(num1, num2);
+            });
+            int count = 0;
+            
+            for (File file : files) {
+                if (count >= INSTANCES_PER_N) break;
+                
+                try {
+                    TestInstance inst = loadInstance(file, n);
+                    if (inst != null) {
+                        instances.add(inst);
+                        count++;
+                    }
+                } catch (Exception e) {
+                    // Skip instances that can't be loaded
+                }
+            }
+            
+            if (!instances.isEmpty()) {
+                result.put(n, instances);
+                System.out.println("  N=" + n + ": loaded " + instances.size() + " instances");
+            }
+        }
+        
+        return result;
+    }
+    
+    static int extractInstanceNumber(String filename) {
+        // instance_123.txt -> 123
+        try {
+            String numPart = filename.replace("instance_", "").replace(".txt", "");
+            return Integer.parseInt(numPart);
+        } catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
+        }
+    }
+    
+    static TestInstance loadInstance(File file, int n) throws IOException {
+        double[][] distances = new double[n][n];
+        double optimalCost = -1;
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            int row = 0;
+            
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                
+                if (line.startsWith("# Optimal cost:")) {
+                    optimalCost = Double.parseDouble(line.substring("# Optimal cost:".length()).trim());
+                } else if (!line.isEmpty() && !line.startsWith("#") && row < n) {
+                    String[] parts = line.split("\\s+");
+                    for (int col = 0; col < parts.length && col < n; col++) {
+                        distances[row][col] = Double.parseDouble(parts[col]);
+                    }
+                    row++;
+                }
+            }
+        }
+        
+        if (optimalCost < 0) {
+            return null; // Nema optimalne cijene
+        }
+        
+        return new TestInstance(new Graph(distances), optimalCost, file.getName());
+    }
+    
+    static void exportResultsByN(Map<Integer, GridResult> bestGAbyN, Map<Integer, GridResult> bestGAWalkByN) {
+        String filename = "ga_grid_search_by_N.csv";
+        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
+            writer.println("N,Algorithm,PopSize,Generations,MutationRate,CrossoverRate,AvgGap%,AvgTime_ms");
+            
+            for (int n : TEST_N_VALUES) {
+                GridResult ga = bestGAbyN.get(n);
+                GridResult walk = bestGAWalkByN.get(n);
+                
+                if (ga != null) {
+                    writer.printf("%d,GA,%d,%d,%.2f,%.2f,%.4f,%.1f%n",
+                        n, ga.popSize, ga.generations, ga.mutationRate, 
+                        ga.crossoverRate, ga.avgGap, ga.avgTime);
+                }
+                if (walk != null) {
+                    writer.printf("%d,GAWalk,%d,%d,%.2f,%.2f,%.4f,%.1f%n",
+                        n, walk.popSize, walk.generations, walk.mutationRate,
+                        walk.crossoverRate, walk.avgGap, walk.avgTime);
+                }
+            }
+            
+            System.out.println("\n📁 Results exported to: " + filename);
+        } catch (IOException e) {
+            System.err.println("Error exporting: " + e.getMessage());
+        }
+    }
+    
+    // Helper classes
+    static class TestInstance {
+        Graph graph;
+        double optimalCost;
+        String name;
+        
+        TestInstance(Graph graph, double optimalCost, String name) {
+            this.graph = graph;
+            this.optimalCost = optimalCost;
+            this.name = name;
+        }
+    }
+    
+    static class GridResult {
+        int popSize, generations;
+        double mutationRate, crossoverRate;
+        double avgGap, avgTime;
+        
+        GridResult(int popSize, int generations, double mutRate, double crossRate, 
+                   double avgGap, double avgTime) {
+            this.popSize = popSize;
+            this.generations = generations;
+            this.mutationRate = mutRate;
+            this.crossoverRate = crossRate;
+            this.avgGap = avgGap;
+            this.avgTime = avgTime;
+        }
     }
 }
