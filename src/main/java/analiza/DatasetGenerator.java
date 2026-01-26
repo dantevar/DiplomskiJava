@@ -12,8 +12,8 @@ import java.io.PrintWriter;
 public class DatasetGenerator {
 
     public static void main(String[] args) {
-        int minN = 21;
-        int maxN = 22;
+        int minN = 24;
+        int maxN = 24;
         int instancesPerN = 1000;
         String baseDir = "data";
 
