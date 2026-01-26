@@ -9,7 +9,7 @@ public class Main {
 
 	public static void main(String[] args) {
 
-        int n = 20; 
+        int n = 10; 
 	    int iter = 100;
 	    
 	    long totalTspTime = 0;
@@ -17,7 +17,9 @@ public class Main {
 	    long totalMyAlgTime = 0;      
 	    long totalMyAlgOptTime = 0;   
 	    long totalHeldKarpTime = 0;
-	    long totalHeldKarpParTime = 0; 
+	    long totalHeldKarpParTime = 0;
+	    long totalBruteForceTime = 0;
+	    long totalBranchBoundTime = 0;
 		
 	    double totalPathCost = 0;
 	    double totalTspParCost = 0;
@@ -25,10 +27,13 @@ public class Main {
 	    double totalMyAlgOptCost = 0;
 		double totalHeldKarpCost = 0;
 		double totalHeldKarpParCost = 0;
+		double totalBruteForceCost = 0;
+		double totalBranchBoundCost = 0;
 
 		int myAlgBetter = 0;
 		int myAlgOptBetter = 0;
 		int heldKarpBetter = 0;
+		int branchBoundBetter = 0;
 		
 	    for (int i = 0; i < iter; i++) {
 	    	
@@ -54,17 +59,17 @@ public class Main {
 
 	        // --- MyAlg (Original BFS) timing ---
 	        long myAlgStart = System.nanoTime();
-	        //Walk walk = MyAlg.bfsWalk(g);
+	        Walk walk = MyAlg.bfsWalk(g);
 	        long myAlgEnd = System.nanoTime();
 	        totalMyAlgTime += (myAlgEnd - myAlgStart);
-	        double myAlgCost = 1;//round(walk.cost + g.min_distances[walk.getHead()][0]);
+	        double myAlgCost = round(walk.cost + g.min_distances[walk.getHead()][0]);
 	        
 	        // --- MyAlgOptimized (Parallel BFS) timing ---
 	        long myAlgOptStart = System.nanoTime();
-	        //Walk walkOpt = MyAlgOptimized.bfsWalkParallel(g);
+	        Walk walkOpt = MyAlgOptimized.bfsWalkParallel(g);
 	        long myAlgOptEnd = System.nanoTime();
 	        totalMyAlgOptTime += (myAlgOptEnd - myAlgOptStart);
-	        double myAlgOptCost = 1;//round(walkOpt.cost + g.min_distances[walkOpt.getHead()][0]);
+	        double myAlgOptCost = round(walkOpt.cost + g.min_distances[walkOpt.getHead()][0]);
 	        
 	        // --- Held-Karp DP walk ---
 	        long heldKarpStart = System.nanoTime();
@@ -78,11 +83,26 @@ public class Main {
 	        long heldKarpParEnd = System.nanoTime();
 	        long heldKarpParTime = heldKarpParEnd - heldKarpParStart;
 	        
+	        // --- Brute Force (only for small N) ---
+	        long bruteStart = System.nanoTime();
+	        double bruteCost = (n <= 10) ? BruteForce.permutations(g) : 0;
+	        long bruteEnd = System.nanoTime();
+	        totalBruteForceTime += (bruteEnd - bruteStart);
+	        
+	        // --- Branch & Bound ---
+	        long bbStart = System.nanoTime();
+	        double bbCost = (n <= 12) ? BruteForce.branchAndBound(g) : 0;
+	        long bbEnd = System.nanoTime();
+	        totalBranchBoundTime += (bbEnd - bbStart);
+	        
 	        totalHeldKarpTime += heldKarpTime;
 	        totalHeldKarpCost += round(heldKarpResult.cost);
 	        
 	        totalHeldKarpParTime += heldKarpParTime;
 	        totalHeldKarpParCost += round(heldKarpParResult.cost);
+	        
+	        totalBruteForceCost += round(bruteCost);
+	        totalBranchBoundCost += round(bbCost);
 
 	        totalPathCost += optimalCost;
 	        totalTspParCost += optimalParCost;
@@ -92,10 +112,12 @@ public class Main {
 			if(myAlgCost < optimalCost) myAlgBetter++;
 			if(myAlgOptCost < optimalCost) myAlgOptBetter++;
 			if(round(heldKarpResult.cost) < optimalCost) heldKarpBetter++;
+			if(n <= 12 && bbCost < optimalCost) branchBoundBetter++;
 	    }
 
 	    System.out.println("Bolje od TSP puta (MyAlg):           " + (double)myAlgBetter / iter);
 	    System.out.println("Bolje od TSP puta (MyAlg Optimized): " + (double)myAlgOptBetter / iter);
+		if(n <= 12) System.out.println("Bolje od TSP puta (Branch & Bound):  " + (double)branchBoundBetter / iter);
 		System.out.println("Bolje od TSP puta (Held-Karp DP):    " + (double)heldKarpBetter / iter);
 
 	    double avgTspMs = (totalTspTime / 1e6) / iter;
@@ -103,12 +125,16 @@ public class Main {
 	    double avgMyAlgMs = (totalMyAlgTime / 1e6) / iter;
 	    double avgMyAlgOptMs = (totalMyAlgOptTime / 1e6) / iter;
 	    double avgHeldKarpMs = (totalHeldKarpTime / 1e6) / iter;
+	    double avgBruteMs = (totalBruteForceTime / 1e6) / iter;
+	    double avgBBMs = (totalBranchBoundTime / 1e6) / iter;
 	    double avgHeldKarpParMs = (totalHeldKarpParTime / 1e6) / iter;
 	    
 		System.out.println("\n--- Timing ---");
 		System.out.println("Average TSP time (ms):            " + avgTspMs);
 		System.out.println("Average TSP Parallel time (ms):   " + avgTspParMs);
 		System.out.println("Average MyAlg time (ms):          " + avgMyAlgMs);
+		if(n <= 10) System.out.println("Average Brute Force time (ms):    " + avgBruteMs);
+		if(n <= 12) System.out.println("Average Branch & Bound time (ms): " + avgBBMs);
 		System.out.println("Average MyAlg Optimized time (ms):" + avgMyAlgOptMs);
 		System.out.println("Average Held-Karp DP time (ms):   " + avgHeldKarpMs);
 		System.out.println("Average Held-Karp Parallel (ms):  " + avgHeldKarpParMs);
@@ -116,6 +142,8 @@ public class Main {
 	    System.out.println("\n--- Costs ---");
 	    System.out.println("Average TSP cost:            " + (totalPathCost) / iter);
 	    System.out.println("Average TSP Parallel cost:   " + (totalTspParCost) / iter);
+	    if(n <= 10) System.out.println("Average Brute Force cost:    " + (totalBruteForceCost) / iter);
+	    if(n <= 12) System.out.println("Average Branch & Bound cost: " + (totalBranchBoundCost) / iter);
 	    System.out.println("Average MyAlg cost:          " + (totalMyAlgCost) / iter);
 	    System.out.println("Average MyAlg Optimized cost:" + (totalMyAlgOptCost) / iter);
 	    System.out.println("Average Held-Karp DP cost:   " + (totalHeldKarpCost) / iter);

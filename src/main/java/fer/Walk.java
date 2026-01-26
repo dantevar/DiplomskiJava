@@ -8,7 +8,7 @@ public class Walk {
 	
   	long state;       // gornjih 48 bitova: visitedBits, donjih 16 bitova: head
     Walk parent;      // prethodni walk (za rekonstrukciju puta)
-    double cost;
+    public double cost;
     int length;
 
     // Konstruktor za početni walk (samo vrh 0)
