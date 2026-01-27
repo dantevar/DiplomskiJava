@@ -25,7 +25,9 @@ import utils.Result;
  */
 public class AlgorithmBenchmark {
     
-    private static final String DATA_DIR = "data";
+    // Dataset options: "data" (uniform), "data_exp" (exponential)
+    private static String DATA_DIR = "data";
+    private static String OUTPUT_DIR = "results/random";
     
     // Rezultati za jedan algoritam
     static class AlgorithmStats {
@@ -99,13 +101,33 @@ public class AlgorithmBenchmark {
     
     public static void main(String[] args) {
         // Konfiguracija
-        int n = 16;          // Veličina grafa
+        int n = 20;          // Veličina grafa
         int numInstances = 100; // Broj instanci za test
+        
+        // Dataset selection: "data" (uniform) or "data_exp" (exponential)
+        if (args.length > 0) {
+            if (args[0].equals("exp") || args[0].equals("data_exp")) {
+                DATA_DIR = "data_exp";
+                OUTPUT_DIR = "results/exp";
+            } else if (args[0].equals("uniform") || args[0].equals("data")) {
+                DATA_DIR = "data";
+                OUTPUT_DIR = "results/random";
+            } else {
+                DATA_DIR = args[0]; // Custom path
+                OUTPUT_DIR = "results/custom";
+            }
+        }
+        
+        // Create output directory if it doesn't exist
+        new File(OUTPUT_DIR).mkdirs();
+        
+        String datasetType = DATA_DIR.equals("data_exp") ? "EXPONENTIAL" : "UNIFORM";
         
         System.out.println("╔══════════════════════════════════════════════════════════════════╗");
         System.out.println("║           ALGORITHM BENCHMARK - MCW PROBLEM                      ║");
         System.out.println("╠══════════════════════════════════════════════════════════════════╣");
-        System.out.printf("║  N = %d, Instances = %d%n", n, numInstances);
+        System.out.printf("║  N = %d, Instances = %d, Dataset = %s%n", n, numInstances, datasetType);
+        System.out.println("║  Usage: java AlgorithmBenchmark [data|data_exp|exp|uniform]      ║");
         System.out.println("╚══════════════════════════════════════════════════════════════════╝");
         System.out.println();
         
@@ -289,40 +311,67 @@ public class AlgorithmBenchmark {
             List<double[]> matrixRows = new ArrayList<>();
             boolean readingMatrix = false;
             boolean readingWalk = false;
+            boolean hasMatrixMarker = false;
             
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
                 
                 if (line.isEmpty()) {
-                    readingMatrix = false;
+                    // Empty line after matrix means matrix is done
+                    if (readingMatrix && !matrixRows.isEmpty()) {
+                        readingMatrix = false;
+                    }
                     readingWalk = false;
                     continue;
                 }
                 
                 if (line.startsWith("# Graph size:")) {
                     n = Integer.parseInt(line.substring("# Graph size:".length()).trim());
+                } else if (line.startsWith("# N:")) {
+                    // Exponential format: "# N: 20"
+                    n = Integer.parseInt(line.substring("# N:".length()).trim());
                 } else if (line.startsWith("# Optimal cost:")) {
                     data.optimalCost = Double.parseDouble(line.substring("# Optimal cost:".length()).trim());
                 } else if (line.equals("# Distance Matrix")) {
                     readingMatrix = true;
+                    hasMatrixMarker = true;
                     readingWalk = false;
                 } else if (line.equals("# Optimal Walk")) {
                     readingMatrix = false;
                     readingWalk = true;
-                } else if (line.startsWith("#")) {
-                    continue;
-                } else if (readingMatrix) {
-                    String[] parts = line.split("\\s+");
-                    double[] row = new double[parts.length];
-                    for (int j = 0; j < parts.length; j++) {
-                        row[j] = Double.parseDouble(parts[j]);
-                    }
-                    matrixRows.add(row);
-                } else if (readingWalk) {
-                    String[] parts = line.split("\\s+");
+                } else if (line.startsWith("# Optimal walk:")) {
+                    // Exponential format: "# Optimal walk: [0, 4, 15, ...]"
+                    String walkStr = line.substring("# Optimal walk:".length()).trim();
+                    walkStr = walkStr.replace("[", "").replace("]", "");
+                    String[] parts = walkStr.split(",\\s*");
                     data.optimalWalk = new ArrayList<>();
                     for (String part : parts) {
-                        data.optimalWalk.add(Integer.parseInt(part));
+                        data.optimalWalk.add(Integer.parseInt(part.trim()));
+                    }
+                } else if (line.startsWith("#")) {
+                    continue;
+                } else if (!line.startsWith("#")) {
+                    // This is data - either matrix or walk
+                    // Try to parse as matrix row (numbers separated by spaces)
+                    try {
+                        String[] parts = line.split("\\s+");
+                        if (parts.length > 1) {
+                            // Multiple numbers = matrix row
+                            double[] row = new double[parts.length];
+                            for (int j = 0; j < parts.length; j++) {
+                                row[j] = Double.parseDouble(parts[j]);
+                            }
+                            matrixRows.add(row);
+                            readingMatrix = true;
+                        } else if (readingWalk) {
+                            // Single numbers = walk nodes (uniform format)
+                            data.optimalWalk = new ArrayList<>();
+                            for (String part : parts) {
+                                data.optimalWalk.add(Integer.parseInt(part));
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        // Skip unparseable lines
                     }
                 }
             }
@@ -342,7 +391,7 @@ public class AlgorithmBenchmark {
     // ═══════════════════════════════════════════════════════════
     
     private static void exportToCsv(Map<String, AlgorithmStats> stats, int n, int instances) {
-        String filename = "benchmark_n" + n + "_results.csv";
+        String filename = OUTPUT_DIR + File.separator + "benchmark_n" + n + "_results.csv";
         
         try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
             // Header
