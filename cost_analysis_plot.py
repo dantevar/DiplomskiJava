@@ -107,7 +107,7 @@ plt.tight_layout()
 plt.savefig('cost_analysis_graph.png', dpi=150, bbox_inches='tight')
 # plt.show()  # Commented out - using non-interactive backend
 
-print(f"\n📊 Graf spremljen kao: cost_analysis_graph.png")
+print(f"\n📊 Graf spremljen kao: cost_analysis_graph_exp.png")
 
 # Predikcije
 print("\n" + "="*50)
