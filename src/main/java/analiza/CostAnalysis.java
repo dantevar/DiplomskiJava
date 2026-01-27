@@ -18,7 +18,9 @@ import java.awt.geom.*;
  */
 public class CostAnalysis {
     
-    private static final String DATA_DIR = "data";
+    // Dataset options: "data" (uniform), "data_exp" (exponential)
+    private static String DATA_DIR = "data";
+    private static String OUTPUT_DIR = "results/random";
     private static final int MIN_N = 4;
     private static final int MAX_N = 23;
     
@@ -50,8 +52,28 @@ public class CostAnalysis {
     }
     
     public static void main(String[] args) {
+        // Dataset selection: "data" (uniform) or "data_exp" (exponential)
+        if (args.length > 0) {
+            if (args[0].equals("exp") || args[0].equals("data_exp")) {
+                DATA_DIR = "data_exp";
+                OUTPUT_DIR = "results/exp";
+            } else if (args[0].equals("uniform") || args[0].equals("data")) {
+                DATA_DIR = "data";
+                OUTPUT_DIR = "results/random";
+            } else {
+                DATA_DIR = args[0]; // Custom path
+                OUTPUT_DIR = "results/custom";
+            }
+        }
+        
+        // Create output directory if it doesn't exist
+        new File(OUTPUT_DIR).mkdirs();
+        
+        String datasetType = DATA_DIR.equals("data_exp") ? "EXPONENTIAL" : "UNIFORM";
+        
         System.out.println("╔══════════════════════════════════════════════════════════════════╗");
-        System.out.println("║          MCW OPTIMAL COST ANALYSIS BY N                          ║");
+        System.out.printf("║      MCW OPTIMAL COST ANALYSIS BY N  [%s]              ║%n", datasetType);
+        System.out.println("║  Usage: java CostAnalysis [data|data_exp|exp|uniform]            ║");
         System.out.println("╚══════════════════════════════════════════════════════════════════╝");
         System.out.println();
         
@@ -326,7 +348,7 @@ public class CostAnalysis {
                                      double[] sqrtFit, double[] logFit, 
                                      double asymC, double asymA,
                                      double powerB, double powerA) {
-        String filename = "cost_analysis_results.csv";
+        String filename = OUTPUT_DIR + File.separator + "cost_analysis_results.csv";
         
         try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
             writer.println("N,Count,AvgCost,Stdev,Min,Max,CV,LinearPred,SqrtPred,PowerPred,LogPred,AsymPred");

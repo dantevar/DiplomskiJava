@@ -9,8 +9,8 @@ public class Main {
 
 	public static void main(String[] args) {
 
-        int n = 10; 
-	    int iter = 100;
+        int n = 11; 
+	    int iter = 10;
 	    
 	    long totalTspTime = 0;
 	    long totalTspParTime = 0; // Parallel TSP
@@ -109,10 +109,12 @@ public class Main {
 	        totalMyAlgCost += myAlgCost;
 	        totalMyAlgOptCost += myAlgOptCost;
 
-			if(myAlgCost < optimalCost) myAlgBetter++;
-			if(myAlgOptCost < optimalCost) myAlgOptBetter++;
-			if(round(heldKarpResult.cost) < optimalCost) heldKarpBetter++;
-			if(n <= 12 && bbCost < optimalCost) branchBoundBetter++;
+	        // Use epsilon comparison to avoid floating point errors
+	        double epsilon = 1e-9;
+			if(myAlgCost < optimalCost - epsilon) myAlgBetter++;
+			if(myAlgOptCost < optimalCost - epsilon) myAlgOptBetter++;
+			if(round(heldKarpResult.cost) < optimalCost - epsilon) heldKarpBetter++;
+			if(n <= 12 && round(bbCost) < optimalCost - epsilon) branchBoundBetter++;
 	    }
 
 	    System.out.println("Bolje od TSP puta (MyAlg):           " + (double)myAlgBetter / iter);

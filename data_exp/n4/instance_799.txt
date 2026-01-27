@@ -1,0 +1,14 @@
+# MCW Instance
+# Type: EXPONENTIAL
+# N: 4
+# Optimal cost: 3.370773856094311
+# Optimal tour (permutation): [0, 3, 2, 1, 0]
+# Optimal walk (full path): [0, 3, 2, 1, 0]
+# Walk size: 5
+# Is walk (has repeats): false
+
+# Distance Matrix
+0.0000000000 1.2344242835 0.3532132573 0.2799680526
+1.2344242835 0.0000000000 1.2526861445 2.0278951301
+0.3532132573 1.2526861445 0.0000000000 0.6036953754
+0.2799680526 2.0278951301 0.6036953754 0.0000000000

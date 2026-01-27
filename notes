@@ -94,3 +94,10 @@ npr vrti 10000 iter ali solidna su vec do 1000, bitno za big n
 GRID SEARCH obavezno
 
 no free lunch? al ovo je 1 problem, ne generalna optimizacija
+
+exp grifovi avg cost opada sa n jer ima vise vjerojatnosti za bolje puteve
+[ 0, 1, 1, 1, 10 ]
+[ 1, 0, 1, 1, 10 ]
+[ 1, 1, 0, 1, 10 ]
+[ 1, 1, 1, 0, 10 ]
+[10,10,10,10, 0 ]; basic primjer, dodatkom novih vrhova dobrog puta do zadnjeg vrha bolji cost

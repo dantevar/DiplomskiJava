@@ -16,7 +16,26 @@ public class GraphGenerator {
 	    return Math.exp(mu + sigma * z);
 	    
 	}
+
+    public static double[][] generateRandomGraphLogNormal(int n) {
+    	
+        double mu = 0.0;      // mean of the underlying normal distribution
+        double sigma = 0.25;  // standard deviation of the underlying normal distribution
+        double[][] graph = new double[n][n];
+        Random rand = new Random();
+
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) { 
+                double edge = logNormal(rand, mu, sigma);
+                graph[i][j] = edge;
+                graph[j][i] = edge; 
+            }
+            graph[i][i] = 0; 
+        }
+		return graph;
 	
+    }
+
     public static double[][] generateRandomGraphExp(int n) {
     	
         double[][] graph = new double[n][n];
